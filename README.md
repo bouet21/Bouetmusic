@@ -14,12 +14,32 @@
 
 Descarga siempre la versión más reciente en formato APK lista para instalar en tu móvil:
 
-👉 **[Descargar Boumusic v1.8.1 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.8.1/Boumusic.apk)**  
+👉 **[Descargar Boumusic v1.8.2 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.8.2/Boumusic.apk)**  
 *(o visita todas las versiones en la sección de [Releases de GitHub](https://github.com/bouet21/Bouetmusic/releases))*
 
 ---
 
-## ✨ Novedades Principales de la v1.8.1
+## ✨ Novedades Principales de la v1.8.2
+
+### 📁 1. Reproducción y Transición Continua entre Carpetas en Modo FTP (¡Nuevo v1.8.2!)
+* **Pasar de música entre carpetas**:
+  * Ahora en el modo FTP puedes escuchar de forma continua todas tus pistas a través de múltiples directorios y subcarpetas.
+  * **Botón "Pasar entre carpetas"**: Escanea recursivamente todas las canciones de la carpeta actual y sus niveles inferiores, ordenándolas por carpeta y nombre de pista. Al terminar una carpeta o al pulsar siguiente (⏭️), avanza naturalmente a la siguiente carpeta sin pausas.
+  * **Salto directo de carpetas**: Desde el menú contextual (⋮) del reproductor a pantalla completa puedes saltar directamente con **"Saltar a siguiente carpeta"** o **"Volver a carpeta anterior"** entre carpetas completas del servidor.
+  * **Transición automática inteligente**: Si reproduces una carpeta individual y llega a su última canción, Boumusic busca dinámicamente las carpetas hermanas del servidor FTP y avanza a la siguiente sin detenerse.
+
+---
+
+### 🔀 2. Modo Shuffle entre Carpetas FTP (¡Nuevo v1.8.2!)
+* **Aleatorio completo a través de múltiples carpetas**:
+  * **Botón "Shuffle carpetas"**: Mezcla en modo aleatorio todas las canciones de todas las subcarpetas del directorio actual (o del servidor completo si te encuentras en la raíz `/`), alternando pistas de diferentes álbumes y artistas.
+  * **Menú rápido por carpeta**: Cada fila de carpeta en el explorador FTP cuenta con un menú (⋮) para **"Reproducir con subcarpetas"** y **"Shuffle de esta carpeta"** directamente.
+  * **Indicador en tiempo real**: Diálogo de escaneo asíncrono que muestra el número de canciones descubiertas mientras explora subcarpetas.
+  * **Insignia de carpeta activa**: El reproductor expandido muestra la etiqueta del directorio remoto actual (`📁 Carpeta`) para identificar en todo momento el álbum en reproducción.
+
+---
+
+## ✨ Novedades de la v1.8.1
 
 ### 🛡️ 1. Estabilidad y Resiliencia Total en Dispositivos OEM (Solución a "se ralla")
 * **Ecualizador y Efectos a prueba de bombas**:

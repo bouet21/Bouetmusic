@@ -196,6 +196,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // Cola de canciones activas del FTP (para saltar siguiente/anterior fluidamente)
     private val _currentFtpPlaylist = MutableStateFlow<List<Song>>(emptyList())
 
+    // Escaneo y reproducción entre carpetas FTP (Recursivo / Shuffle entre carpetas)
+    private val _isFtpScanningAcrossFolders = MutableStateFlow(false)
+    val isFtpScanningAcrossFolders: StateFlow<Boolean> = _isFtpScanningAcrossFolders.asStateFlow()
+
+    private val _ftpScanProgressCount = MutableStateFlow(0)
+    val ftpScanProgressCount: StateFlow<Int> = _ftpScanProgressCount.asStateFlow()
+
+    private var ftpScanJob: Job? = null
+
     // Temporizador de apagado (Sleep Timer)
     private var sleepTimerJob: Job? = null
     private val _sleepTimerMinutesLeft = MutableStateFlow<Int?>(null)
@@ -330,6 +339,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_READY) {
                     _duration.value = player.duration.coerceAtLeast(0L)
+                } else if (playbackState == Player.STATE_ENDED) {
+                    val current = _currentSong.value
+                    if (current != null && current.isFtp) {
+                        skipToNextFtpFolder()
+                    }
                 }
             }
         })
@@ -816,6 +830,229 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         _currentSong.value = ftpSongs[index]
     }
 
+    /**
+     * Reproduce música entre carpetas (escaneo recursivo de subcarpetas).
+     * Si [shuffle] es true, mezcla todas las canciones de todas las subcarpetas aleatoriamente.
+     * Si [shuffle] es false, las reproduce en orden continuo carpeta por carpeta.
+     */
+    fun playFtpAcrossFolders(startPath: String = _ftpCurrentPath.value, shuffle: Boolean = false) {
+        val controller = mediaController ?: return
+        val cfg = _currentFtpConfig.value
+        val host = cfg?.host ?: "Servidor FTP"
+
+        ftpScanJob?.cancel()
+        ftpScanJob = viewModelScope.launch {
+            _isFtpScanningAcrossFolders.value = true
+            _ftpScanProgressCount.value = 0
+
+            val result = ftpManager.listAllAudioFilesRecursively(startPath) { count ->
+                _ftpScanProgressCount.value = count
+            }
+
+            _isFtpScanningAcrossFolders.value = false
+
+            result.onSuccess { rawItems ->
+                if (rawItems.isEmpty()) {
+                    Toast.makeText(getApplication(), "No se encontraron canciones en las carpetas seleccionadas", Toast.LENGTH_SHORT).show()
+                    return@onSuccess
+                }
+
+                val items = if (shuffle) rawItems.shuffled() else rawItems
+                val ftpSongs = items.map { audio ->
+                    val streamUrl = ftpStreamBridge.getStreamUrl(audio.path, audio.size)
+                    val folderName = audio.path.substringBeforeLast("/").ifBlank { "/" }
+                    Song(
+                        id = (audio.path + host).hashCode().toLong(),
+                        title = audio.name.substringBeforeLast("."),
+                        artist = cfg?.name ?: "Servidor FTP",
+                        album = folderName,
+                        duration = 0L,
+                        contentUri = Uri.parse(streamUrl),
+                        albumArtUri = null,
+                        dataPath = audio.path,
+                        isFtp = true,
+                        ftpPath = audio.path,
+                        ftpServerHost = host
+                    )
+                }
+
+                _currentFtpPlaylist.value = ftpSongs
+
+                val mediaItems = ftpSongs.map { s ->
+                    MediaItem.Builder()
+                        .setMediaId(s.id.toString())
+                        .setUri(s.contentUri)
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle(s.title)
+                                .setArtist(s.artist)
+                                .setAlbumTitle(s.album)
+                                .build()
+                        )
+                        .build()
+                }
+
+                controller.setMediaItems(mediaItems, 0, 0L)
+                controller.shuffleModeEnabled = shuffle
+                controller.prepare()
+                controller.play()
+
+                _currentSong.value = ftpSongs.firstOrNull()
+
+                val msg = if (shuffle) {
+                    "🔀 Modo aleatorio: ${ftpSongs.size} canciones de varias carpetas"
+                } else {
+                    "📁 Reproduciendo ${ftpSongs.size} canciones entre carpetas"
+                }
+                Toast.makeText(getApplication(), msg, Toast.LENGTH_SHORT).show()
+            }.onFailure { err ->
+                Toast.makeText(getApplication(), "Error al escanear carpetas: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun cancelFtpScan() {
+        ftpScanJob?.cancel()
+        _isFtpScanningAcrossFolders.value = false
+    }
+
+    fun playCurrentFtpFolder(shuffle: Boolean = false) {
+        val audioItems = _ftpItems.value.filter { it.isAudio }
+        if (audioItems.isEmpty()) {
+            Toast.makeText(getApplication(), "No hay canciones en esta carpeta", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val first = if (shuffle) audioItems.random() else audioItems.first()
+        val items = if (shuffle) audioItems.shuffled() else audioItems
+        playFtpSong(first, items)
+        if (shuffle) {
+            mediaController?.shuffleModeEnabled = true
+        }
+    }
+
+    fun skipToNextFtpFolder() {
+        val controller = mediaController ?: return
+        val current = _currentSong.value ?: return
+        if (!current.isFtp) return
+
+        val playlist = _currentFtpPlaylist.value
+        val currentFolder = current.album
+        val currentIndex = playlist.indexOfFirst { it.id == current.id }
+
+        var targetIndex = -1
+        if (currentIndex in playlist.indices) {
+            for (i in (currentIndex + 1) until playlist.size) {
+                if (playlist[i].album != currentFolder) {
+                    targetIndex = i
+                    break
+                }
+            }
+        }
+
+        if (targetIndex != -1) {
+            controller.seekTo(targetIndex, 0L)
+            controller.play()
+            val folderName = playlist[targetIndex].album.substringAfterLast("/").ifBlank { playlist[targetIndex].album }
+            Toast.makeText(getApplication(), "Carpeta: $folderName", Toast.LENGTH_SHORT).show()
+        } else {
+            // Si no hay más carpetas en la cola actual, buscar dinámicamente la siguiente carpeta en el servidor
+            viewModelScope.launch {
+                val currentPath = current.ftpPath
+                val currentDir = currentPath.substringBeforeLast("/").ifBlank { "/" }
+                val parentDir = currentDir.trimEnd('/').substringBeforeLast("/").ifBlank { "/" }
+
+                val listRes = ftpManager.listFiles(parentDir)
+                listRes.onSuccess { siblings ->
+                    val dirs = siblings.filter { it.isDirectory }.map { it.path }
+                    val curIdx = dirs.indexOf(currentDir)
+                    val nextDir = if (curIdx != -1 && curIdx + 1 < dirs.size) {
+                        dirs[curIdx + 1]
+                    } else if (dirs.isNotEmpty() && dirs.first() != currentDir) {
+                        dirs.first()
+                    } else null
+
+                    if (nextDir != null) {
+                        val subRes = ftpManager.listFiles(nextDir)
+                        subRes.onSuccess { subItems ->
+                            val audios = subItems.filter { it.isAudio }
+                            if (audios.isNotEmpty()) {
+                                playFtpSong(audios.first(), audios)
+                                val folderName = nextDir.substringAfterLast("/").ifBlank { nextDir }
+                                Toast.makeText(getApplication(), "Siguiente carpeta: $folderName", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(getApplication(), "No hay canciones en la siguiente carpeta", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    } else {
+                        Toast.makeText(getApplication(), "Fin de carpetas en el servidor", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
+
+    fun skipToPreviousFtpFolder() {
+        val controller = mediaController ?: return
+        val current = _currentSong.value ?: return
+        if (!current.isFtp) return
+
+        val playlist = _currentFtpPlaylist.value
+        val currentFolder = current.album
+        val currentIndex = playlist.indexOfFirst { it.id == current.id }
+
+        if (currentIndex > 0) {
+            var prevFolderStartIndex = -1
+            for (i in (currentIndex - 1) downTo 0) {
+                if (playlist[i].album != currentFolder) {
+                    val prevFolder = playlist[i].album
+                    var start = i
+                    while (start > 0 && playlist[start - 1].album == prevFolder) {
+                        start--
+                    }
+                    prevFolderStartIndex = start
+                    break
+                }
+            }
+
+            if (prevFolderStartIndex != -1) {
+                controller.seekTo(prevFolderStartIndex, 0L)
+                controller.play()
+                val folderName = playlist[prevFolderStartIndex].album.substringAfterLast("/").ifBlank { playlist[prevFolderStartIndex].album }
+                Toast.makeText(getApplication(), "Carpeta: $folderName", Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
+        viewModelScope.launch {
+            val currentPath = current.ftpPath
+            val currentDir = currentPath.substringBeforeLast("/").ifBlank { "/" }
+            val parentDir = currentDir.trimEnd('/').substringBeforeLast("/").ifBlank { "/" }
+
+            val listRes = ftpManager.listFiles(parentDir)
+            listRes.onSuccess { siblings ->
+                val dirs = siblings.filter { it.isDirectory }.map { it.path }
+                val curIdx = dirs.indexOf(currentDir)
+                val prevDir = if (curIdx > 0) {
+                    dirs[curIdx - 1]
+                } else null
+
+                if (prevDir != null) {
+                    val subRes = ftpManager.listFiles(prevDir)
+                    subRes.onSuccess { subItems ->
+                        val audios = subItems.filter { it.isAudio }
+                        if (audios.isNotEmpty()) {
+                            playFtpSong(audios.first(), audios)
+                            val folderName = prevDir.substringAfterLast("/").ifBlank { prevDir }
+                            Toast.makeText(getApplication(), "Carpeta: $folderName", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    Toast.makeText(getApplication(), "Primera carpeta alcanzada", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     fun downloadFtpSong(item: FtpItem, onDone: () -> Unit) {
         viewModelScope.launch {
             val musicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
@@ -996,6 +1233,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         mediaController?.let {
             if (it.hasNextMediaItem()) {
                 it.seekToNextMediaItem()
+            } else {
+                val current = _currentSong.value
+                if (current != null && current.isFtp) {
+                    skipToNextFtpFolder()
+                }
             }
         }
     }

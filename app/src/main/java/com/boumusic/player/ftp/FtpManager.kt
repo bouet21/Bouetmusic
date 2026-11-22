@@ -273,6 +273,85 @@ class FtpManager(private val context: Context? = null) {
         }
     }
 
+    /**
+     * Escaneo recursivo (BFS) de todos los archivos de audio bajo [startPath].
+     * Recorre carpetas por niveles y emite el progreso parcial para feedback en UI.
+     * Retorna la lista ordenada por carpetas y nombres de archivo para reproducción continua secuencial.
+     */
+    suspend fun listAllAudioFilesRecursively(
+        startPath: String = "/",
+        maxResults: Int = 3000,
+        maxDepth: Int = 10,
+        onProgress: ((Int) -> Unit)? = null
+    ): Result<List<FtpItem>> = withContext(Dispatchers.IO) {
+        val config = activeConfig ?: return@withContext Result.failure(Exception("No hay servidor FTP configurado"))
+        val client = createFtpClient(config)
+        try {
+            client.connectTimeout = 10000
+            client.defaultTimeout = 15000
+            client.connect(config.host, config.port)
+            client.login(config.username.ifBlank { "anonymous" }, config.password)
+            configurePostLogin(client)
+            client.enterLocalPassiveMode()
+            client.setFileType(FTP.BINARY_FILE_TYPE)
+
+            val results = mutableListOf<FtpItem>()
+            val queue = ArrayDeque<Pair<String, Int>>()
+            val rootPath = if (startPath.isBlank()) "/" else startPath
+            queue.add(Pair(rootPath, 0))
+
+            while (queue.isNotEmpty() && results.size < maxResults && coroutineContext.isActive) {
+                val (currentDir, depth) = queue.removeFirst()
+                if (depth > maxDepth) continue
+
+                val files = try {
+                    client.listFiles(currentDir)
+                } catch (e: Exception) {
+                    null
+                } ?: continue
+
+                val countBefore = results.size
+                for (f in files) {
+                    if (!coroutineContext.isActive || results.size >= maxResults) break
+                    val name = f.name ?: continue
+                    if (name == "." || name == ".." || name.startsWith(".")) continue
+
+                    val fullPath = if (currentDir.endsWith("/")) "$currentDir$name" else "$currentDir/$name"
+
+                    if (f.isDirectory) {
+                        if (depth < maxDepth) {
+                            queue.add(Pair(fullPath, depth + 1))
+                        }
+                    } else {
+                        val item = FtpItem(name = name, path = fullPath, isDirectory = false, size = f.size)
+                        if (item.isAudio) {
+                            results.add(item)
+                        }
+                    }
+                }
+
+                if (results.size > countBefore) {
+                    onProgress?.invoke(results.size)
+                }
+            }
+
+            try {
+                client.disconnect()
+            } catch (ignored: Exception) {}
+
+            // Ordenar por ruta de carpeta y luego por nombre para mantener canciones de cada carpeta juntas
+            val sorted = results.sortedWith(
+                compareBy({ it.path.substringBeforeLast("/") }, { it.name.lowercase() })
+            )
+            Result.success(sorted)
+        } catch (e: Exception) {
+            try {
+                client.disconnect()
+            } catch (ignored: Exception) {}
+            Result.failure(e)
+        }
+    }
+
     fun openNewClient(): FTPClient? {
         val config = activeConfig ?: return null
         return try {

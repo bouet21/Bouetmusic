@@ -20,6 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.DriveFileMove
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
@@ -97,6 +100,9 @@ fun NowPlayingScreen(
     onShareClick: (Song) -> Unit = {},
     onOpenEqualizer: () -> Unit = {},
     onOpenQueue: () -> Unit = {},
+    onSkipToNextFolder: (() -> Unit)? = null,
+    onSkipToPreviousFolder: (() -> Unit)? = null,
+    onShuffleAcrossFolders: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -287,6 +293,32 @@ fun NowPlayingScreen(
                             onShareClick(song)
                         }
                     )
+                    if (song.isFtp) {
+                        DropdownMenuItem(
+                            text = { Text("Saltar a siguiente carpeta", color = TextPrimary) },
+                            leadingIcon = { Icon(Icons.Default.DriveFileMove, contentDescription = null, tint = NeonCyan) },
+                            onClick = {
+                                showOptionsMenu = false
+                                onSkipToNextFolder?.invoke()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Volver a carpeta anterior", color = TextPrimary) },
+                            leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null, tint = NeonCyan) },
+                            onClick = {
+                                showOptionsMenu = false
+                                onSkipToPreviousFolder?.invoke()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Shuffle entre carpetas", color = TextPrimary) },
+                            leadingIcon = { Icon(Icons.Default.Shuffle, contentDescription = null, tint = NeonCyan) },
+                            onClick = {
+                                showOptionsMenu = false
+                                onShuffleAcrossFolders?.invoke()
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -333,6 +365,28 @@ fun NowPlayingScreen(
         }
 
         Spacer(modifier = Modifier.height(14.dp))
+
+        if (song.isFtp) {
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(DarkSurfaceVariant)
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Folder, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(13.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = song.album.substringAfterLast("/").ifBlank { song.album },
+                    color = NeonCyan,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+        }
 
         // Título y artista
         Text(

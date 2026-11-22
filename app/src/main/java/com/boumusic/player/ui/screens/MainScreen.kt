@@ -782,7 +782,10 @@ fun MainScreen(
                         onSetSleepTimer = { viewModel.setSleepTimer(it) },
                         onShareClick = { viewModel.openShareOptions(it) },
                         onOpenEqualizer = { showEqualizerDialog = true },
-                        onOpenQueue = { showQueueSheet = true }
+                        onOpenQueue = { showQueueSheet = true },
+                        onSkipToNextFolder = { viewModel.skipToNextFtpFolder() },
+                        onSkipToPreviousFolder = { viewModel.skipToPreviousFtpFolder() },
+                        onShuffleAcrossFolders = { viewModel.playFtpAcrossFolders(shuffle = true) }
                     )
                 }
             }

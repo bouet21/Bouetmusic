@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderCopy
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
@@ -35,8 +38,10 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -53,6 +58,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -99,6 +105,48 @@ fun FtpScreen(
     val ftpSearchResults by viewModel.ftpSearchResults.collectAsState()
     val isFtpDeepSearchActive by viewModel.isFtpDeepSearchActive.collectAsState()
     val filteredFtpItems by viewModel.filteredFtpItems.collectAsState()
+
+    // Escaneo recursivo entre carpetas
+    val isFtpScanningAcrossFolders by viewModel.isFtpScanningAcrossFolders.collectAsState()
+    val ftpScanProgressCount by viewModel.ftpScanProgressCount.collectAsState()
+
+    if (isFtpScanningAcrossFolders) {
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelFtpScan() },
+            containerColor = DarkSurface,
+            title = {
+                Text("Escaneando carpetas...", color = TextPrimary, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    CircularProgressIndicator(color = NeonCyan)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Encontradas: $ftpScanProgressCount canciones",
+                        color = NeonCyan,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Buscando en subcarpetas para reproducción continua y shuffle...",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { viewModel.cancelFtpScan() }) {
+                    Text("Cancelar", color = TextSecondary)
+                }
+            }
+        )
+    }
 
     var name by remember { mutableStateOf("Mi Servidor FTP") }
     var host by remember { mutableStateOf("192.168.1.100") }
@@ -494,6 +542,56 @@ fun FtpScreen(
                         )
                     }
                 }
+
+                // Barra de Acciones de Reproducción entre carpetas y en carpeta actual
+                Spacer(modifier = Modifier.height(6.dp))
+                val audioCountInFolder = filteredFtpItems.count { it.isAudio }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterChip(
+                        selected = false,
+                        onClick = { viewModel.playFtpAcrossFolders(currentPath, shuffle = false) },
+                        leadingIcon = {
+                            Icon(Icons.Default.FolderCopy, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(16.dp))
+                        },
+                        label = { Text("Pasar entre carpetas", fontSize = 12.sp, color = TextPrimary, fontWeight = FontWeight.SemiBold) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = DarkSurfaceVariant
+                        )
+                    )
+
+                    FilterChip(
+                        selected = false,
+                        onClick = { viewModel.playFtpAcrossFolders(currentPath, shuffle = true) },
+                        leadingIcon = {
+                            Icon(Icons.Default.Shuffle, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(16.dp))
+                        },
+                        label = { Text("Shuffle carpetas", fontSize = 12.sp, color = TextPrimary, fontWeight = FontWeight.SemiBold) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = DarkSurfaceVariant
+                        )
+                    )
+
+                    if (audioCountInFolder > 0) {
+                        FilterChip(
+                            selected = false,
+                            onClick = { viewModel.playCurrentFtpFolder(shuffle = false) },
+                            leadingIcon = {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(16.dp))
+                            },
+                            label = { Text("Esta carpeta ($audioCountInFolder)", fontSize = 12.sp, color = TextPrimary) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = DarkSurfaceVariant
+                            )
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -575,6 +673,9 @@ fun FtpScreen(
                                     viewModel.downloadFtpSong(item) {
                                         Toast.makeText(context, "Canción descargada en Music/Boumusic", Toast.LENGTH_SHORT).show()
                                     }
+                                },
+                                onPlayFolder = { path, shuffle ->
+                                    viewModel.playFtpAcrossFolders(path, shuffle)
                                 }
                             )
                             Spacer(modifier = Modifier.height(6.dp))
@@ -680,7 +781,8 @@ private fun FtpItemRow(
     onOpenDir: () -> Unit,
     onPlay: () -> Unit,
     onAddToPlaylist: () -> Unit,
-    onDownload: () -> Unit
+    onDownload: () -> Unit,
+    onPlayFolder: ((path: String, shuffle: Boolean) -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -725,7 +827,44 @@ private fun FtpItemRow(
             )
         }
 
-        if (!item.isDirectory) {
+        if (item.isDirectory) {
+            var showFolderMenu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { showFolderMenu = true }, modifier = Modifier.size(34.dp)) {
+                    Icon(Icons.Default.MoreVert, contentDescription = "Opciones de carpeta", tint = TextSecondary, modifier = Modifier.size(20.dp))
+                }
+                DropdownMenu(
+                    expanded = showFolderMenu,
+                    onDismissRequest = { showFolderMenu = false },
+                    modifier = Modifier.background(DarkSurface)
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Reproducir con subcarpetas", color = TextPrimary, fontSize = 13.sp) },
+                        leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = NeonCyan) },
+                        onClick = {
+                            showFolderMenu = false
+                            onPlayFolder?.invoke(item.path, false)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Shuffle de esta carpeta", color = TextPrimary, fontSize = 13.sp) },
+                        leadingIcon = { Icon(Icons.Default.Shuffle, contentDescription = null, tint = NeonCyan) },
+                        onClick = {
+                            showFolderMenu = false
+                            onPlayFolder?.invoke(item.path, true)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Abrir carpeta", color = TextPrimary, fontSize = 13.sp) },
+                        leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null, tint = TextSecondary) },
+                        onClick = {
+                            showFolderMenu = false
+                            onOpenDir()
+                        }
+                    )
+                }
+            }
+        } else {
             IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(34.dp)) {
                 Icon(Icons.Default.PlaylistAdd, contentDescription = "Añadir a lista", tint = NeonCyan, modifier = Modifier.size(18.dp))
             }
