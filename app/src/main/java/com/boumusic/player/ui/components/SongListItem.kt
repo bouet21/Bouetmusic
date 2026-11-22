@@ -20,17 +20,20 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.boumusic.player.model.Song
 import com.boumusic.player.ui.theme.DarkSurfaceVariant
 import com.boumusic.player.ui.theme.DeepCyan
@@ -45,8 +48,11 @@ fun SongListItem(
     isPlayingThis: Boolean,
     onClick: () -> Unit,
     onMenuClick: (() -> Unit)? = null,
+    historySubtitle: String? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -56,7 +62,7 @@ fun SongListItem(
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Carátula del álbum o icono con degradado si no tiene
+        // Carátula del álbum optimizada (downsampling a 120x120 para ligereza y bajo consumo de RAM)
         Box(
             modifier = Modifier
                 .size(50.dp)
@@ -69,8 +75,15 @@ fun SongListItem(
             contentAlignment = Alignment.Center
         ) {
             if (song.albumArtUri != null) {
+                val imageRequest = remember(song.albumArtUri) {
+                    ImageRequest.Builder(context)
+                        .data(song.albumArtUri)
+                        .size(120, 120)
+                        .crossfade(true)
+                        .build()
+                }
                 AsyncImage(
-                    model = song.albumArtUri,
+                    model = imageRequest,
                     contentDescription = song.album,
                     modifier = Modifier.matchParentSize(),
                     contentScale = ContentScale.Crop
@@ -87,7 +100,7 @@ fun SongListItem(
 
         Spacer(modifier = Modifier.width(14.dp))
 
-        // Título y artista
+        // Título y artista / historial
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -124,13 +137,24 @@ fun SongListItem(
 
             Spacer(modifier = Modifier.size(3.dp))
 
-            Text(
-                text = if (song.isFtp) "Servidor FTP • ${song.album.ifBlank { song.ftpServerHost }}" else "${song.artist} • ${song.album}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            if (historySubtitle != null) {
+                Text(
+                    text = historySubtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = NeonCyan.copy(alpha = 0.9f),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            } else {
+                Text(
+                    text = if (song.isFtp) "Servidor FTP • ${song.album.ifBlank { song.ftpServerHost }}" else "${song.artist} • ${song.album}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(6.dp))

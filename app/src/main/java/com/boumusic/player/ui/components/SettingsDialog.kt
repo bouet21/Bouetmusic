@@ -19,6 +19,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Refresh
@@ -60,6 +61,7 @@ import com.boumusic.player.ui.viewmodel.MusicViewModel
 fun SettingsDialog(
     viewModel: MusicViewModel,
     onOpenEqualizer: () -> Unit,
+    onOpenStats: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     var transferPin by remember { mutableStateOf(viewModel.transferPin.value) }
@@ -140,6 +142,22 @@ fun SettingsDialog(
                     Icon(Icons.Default.GraphicEq, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Abrir Ecualizador de Audio", color = NeonCyan, fontSize = 13.sp)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = {
+                        onDismiss()
+                        onOpenStats()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceVariant),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Leaderboard, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Ver Estadísticas y Resumen Trimestral", color = NeonCyan, fontSize = 13.sp)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

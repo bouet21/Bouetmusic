@@ -16,6 +16,7 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.boumusic.player.audio.EqualizerManager
+import com.boumusic.player.data.HistoryAndStatsManager
 import com.boumusic.player.data.MusicRepository
 import com.boumusic.player.data.PlaylistRepository
 import com.boumusic.player.ftp.FtpManager
@@ -26,6 +27,7 @@ import com.boumusic.player.model.Playlist
 import com.boumusic.player.model.ShareTarget
 import com.boumusic.player.model.ShareType
 import com.boumusic.player.model.Song
+import com.boumusic.player.model.SongHistoryItem
 import com.boumusic.player.service.MusicService
 import com.boumusic.player.transfer.NetworkUtils
 import com.boumusic.player.transfer.TransferServer
@@ -52,6 +54,27 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val ftpManager = FtpManager(application)
     private val ftpStreamBridge = FtpStreamBridge(ftpManager)
     val equalizerManager = EqualizerManager(application)
+    val historyManager = HistoryAndStatsManager(application)
+
+    // Historial de canciones y estadísticas
+    val historySongs: StateFlow<List<SongHistoryItem>> = historyManager.historyFlow
+    val topSongs: StateFlow<List<SongHistoryItem>> = historyManager.topSongsFlow
+
+    private val _showStatsDialog = MutableStateFlow(false)
+    val showStatsDialog: StateFlow<Boolean> = _showStatsDialog.asStateFlow()
+
+    fun setShowStatsDialog(show: Boolean) {
+        _showStatsDialog.value = show
+    }
+
+    fun clearHistory() {
+        historyManager.clearHistory()
+    }
+
+    fun playHistoryItem(item: SongHistoryItem) {
+        val song = item.toSong(_songs.value)
+        playSong(song)
+    }
 
     // Pestaña principal (0 = Canciones, 1 = Listas, 2 = Servidor FTP)
     private val _currentTab = MutableStateFlow(0)
@@ -275,6 +298,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 _currentPosition.value = 0L
                 _duration.value = found?.duration?.takeIf { it > 0 } ?: player.duration.coerceAtLeast(0L)
 
+                if (found != null) {
+                    historyManager.recordSongPlayStart(found)
+                }
+
                 // Si es una canción remota FTP y no estamos conectados al servidor FTP
                 if (found != null && found.isFtp) {
                     if (!_isFtpConnected.value || !ftpManager.isConnected) {
@@ -355,7 +382,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setSongsSubTab(subTab: Int) {
         _songsSubTab.value = subTab
-        if (subTab == 0) {
+        if (subTab == 0 || subTab == 4) {
             _selectedArtist.value = null
             _selectedAlbum.value = null
             _selectedGenre.value = null
@@ -950,8 +977,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         controller.prepare()
         controller.play()
 
-        _currentSong.value = list.getOrNull(startIndex)
-        _duration.value = list.getOrNull(startIndex)?.duration ?: 0L
+        val startingSong = list.getOrNull(startIndex)
+        _currentSong.value = startingSong
+        _duration.value = startingSong?.duration ?: 0L
+        startingSong?.let { historyManager.recordSongPlayStart(it) }
     }
 
     fun togglePlayPause() {
@@ -1015,10 +1044,19 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private fun startProgressTracking() {
         progressJob?.cancel()
         progressJob = viewModelScope.launch {
+            var counter = 0
             while (isActive) {
                 mediaController?.let { controller ->
                     if (controller.isPlaying) {
                         _currentPosition.value = controller.currentPosition.coerceAtLeast(0L)
+                        counter++
+                        // Acumular duración de reproducción en el gestor de historial/estadísticas cada 5s
+                        if (counter >= 10) {
+                            counter = 0
+                            _currentSong.value?.let { s ->
+                                historyManager.recordDurationPlayed(s, 5000L)
+                            }
+                        }
                     }
                 }
                 delay(500)

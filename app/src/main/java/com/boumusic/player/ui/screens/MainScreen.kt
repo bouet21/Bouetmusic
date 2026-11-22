@@ -8,6 +8,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlaylistAdd
@@ -82,6 +85,7 @@ import com.boumusic.player.R
 import com.boumusic.player.model.ShareType
 import com.boumusic.player.model.Song
 import com.boumusic.player.ui.components.EqualizerDialog
+import com.boumusic.player.ui.components.HistoryView
 import com.boumusic.player.ui.components.MiniPlayer
 import com.boumusic.player.ui.components.NowPlayingScreen
 import com.boumusic.player.ui.components.QueueBottomSheet
@@ -89,6 +93,7 @@ import com.boumusic.player.ui.components.SettingsDialog
 import com.boumusic.player.ui.components.ShareOptionsDialog
 import com.boumusic.player.ui.components.ShareQrDialog
 import com.boumusic.player.ui.components.SongListItem
+import com.boumusic.player.ui.components.StatsDialog
 import com.boumusic.player.ui.theme.DarkBackground
 import com.boumusic.player.ui.theme.DarkCardBorder
 import com.boumusic.player.ui.theme.DarkSurface
@@ -139,11 +144,21 @@ fun MainScreen(
     var showEqualizerDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
 
-    // Diálogos de Ajustes, Ecualizador y Cola
+    val showStatsDialog by viewModel.showStatsDialog.collectAsState()
+
+    // Diálogos de Estadísticas, Ajustes, Ecualizador y Cola
+    if (showStatsDialog) {
+        StatsDialog(
+            historyManager = viewModel.historyManager,
+            onDismiss = { viewModel.setShowStatsDialog(false) }
+        )
+    }
+
     if (showSettingsDialog) {
         SettingsDialog(
             viewModel = viewModel,
             onOpenEqualizer = { showEqualizerDialog = true },
+            onOpenStats = { viewModel.setShowStatsDialog(true) },
             onDismiss = { showSettingsDialog = false }
         )
     }
@@ -498,6 +513,17 @@ fun MainScreen(
                             Spacer(modifier = Modifier.width(8.dp))
 
                             IconButton(
+                                onClick = { viewModel.setShowStatsDialog(true) },
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(DarkSurfaceVariant)
+                            ) {
+                                Icon(Icons.Default.Leaderboard, contentDescription = "Estadísticas", tint = NeonCyan, modifier = Modifier.size(20.dp))
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            IconButton(
                                 onClick = { viewModel.loadSongs() },
                                 modifier = Modifier
                                     .clip(CircleShape)
@@ -518,10 +544,12 @@ fun MainScreen(
                             }
                         }
 
-                        // Selector de sub-pestañas: [Todas | Artistas | Álbumes | Géneros]
+                        // Selector de sub-pestañas: [Todas | Artistas | Álbumes | Géneros | Historial]
                         Spacer(modifier = Modifier.height(12.dp))
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
@@ -546,6 +574,12 @@ fun MainScreen(
                                 selected = songsSubTab == 3 || selectedGenre != null,
                                 onClick = { viewModel.setSongsSubTab(3) },
                                 label = { Text(selectedGenre ?: "Géneros") },
+                                colors = chipColors()
+                            )
+                            FilterChip(
+                                selected = songsSubTab == 4,
+                                onClick = { viewModel.setSongsSubTab(4) },
+                                label = { Text("Historial") },
                                 colors = chipColors()
                             )
                         }
@@ -603,7 +637,7 @@ fun MainScreen(
                                 // Vista de agrupación por ARTISTAS
                                 val artists = allSongs.groupBy { it.artist }
                                 LazyColumn(modifier = Modifier.weight(1f)) {
-                                    items(artists.keys.toList().sorted()) { artistName ->
+                                    items(artists.keys.toList().sorted(), key = { it }) { artistName ->
                                         val count = artists[artistName]?.size ?: 0
                                         Row(
                                             modifier = Modifier
@@ -625,37 +659,11 @@ fun MainScreen(
                                     }
                                 }
                             }
-                            songsSubTab == 3 && selectedGenre == null -> {
-                                // Vista de agrupación por GÉNEROS
-                                val genres = allSongs.groupBy { it.genre.ifBlank { "Varios" } }
-                                LazyColumn(modifier = Modifier.weight(1f)) {
-                                    items(genres.keys.toList().sorted()) { genreName ->
-                                        val count = genres[genreName]?.size ?: 0
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(12.dp))
-                                                .background(DarkSurface)
-                                                .clickable { viewModel.filterByGenre(genreName) }
-                                                .padding(14.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(Icons.Default.Category, contentDescription = null, tint = ElectricPurple)
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(genreName, color = TextPrimary, fontWeight = FontWeight.Bold)
-                                                Text("$count canciones", color = TextSecondary, fontSize = 12.sp)
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                    }
-                                }
-                            }
                             songsSubTab == 2 && selectedAlbum == null -> {
                                 // Vista de agrupación por ÁLBUMES
                                 val albums = allSongs.groupBy { it.album }
                                 LazyColumn(modifier = Modifier.weight(1f)) {
-                                    items(albums.keys.toList().sorted()) { albumName ->
+                                    items(albums.keys.toList().sorted(), key = { it }) { albumName ->
                                         val albumSongs = albums[albumName] ?: emptyList()
                                         Row(
                                             modifier = Modifier
@@ -681,7 +689,7 @@ fun MainScreen(
                                 // Vista de agrupación por GÉNEROS
                                 val genres = allSongs.groupBy { it.genre.ifBlank { "Varios" } }
                                 LazyColumn(modifier = Modifier.weight(1f)) {
-                                    items(genres.keys.toList().sorted()) { genreName ->
+                                    items(genres.keys.toList().sorted(), key = { it }) { genreName ->
                                         val count = genres[genreName]?.size ?: 0
                                         Row(
                                             modifier = Modifier
@@ -702,6 +710,13 @@ fun MainScreen(
                                         Spacer(modifier = Modifier.height(6.dp))
                                     }
                                 }
+                            }
+                            songsSubTab == 4 -> {
+                                HistoryView(
+                                    viewModel = viewModel,
+                                    onSongMenuClick = { songForOptionsMenu = it },
+                                    onOpenStats = { viewModel.setShowStatsDialog(true) }
+                                )
                             }
                             allSongs.isEmpty() -> {
                                 EmptyLibraryContent(
