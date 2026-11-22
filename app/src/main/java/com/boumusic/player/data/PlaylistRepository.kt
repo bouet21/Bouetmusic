@@ -1,7 +1,9 @@
 package com.boumusic.player.data
 
 import android.content.Context
+import android.os.Environment
 import com.boumusic.player.model.Playlist
+import com.boumusic.player.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -99,6 +101,63 @@ class PlaylistRepository(private val context: Context) {
             val updatedList = target.songIds.filter { it != songId }
             current[idx] = target.copy(songIds = updatedList)
             savePlaylists(current)
+        }
+    }
+
+    // Exportar lista de reproducción a formato estándar .M3U
+    suspend fun exportToM3u(playlist: Playlist, allSongs: List<Song>): File = withContext(Dispatchers.IO) {
+        val musicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
+        val exportDir = File(musicDir, "Boumusic/Playlists").apply { if (!exists()) mkdirs() }
+        val cleanName = playlist.name.replace(Regex("[^a-zA-Z0-9_ -]"), "_")
+        val file = File(exportDir, "$cleanName.m3u")
+
+        val sb = StringBuilder()
+        sb.append("#EXTM3U\n")
+        sb.append("#PLAYLIST:${playlist.name}\n")
+
+        for (id in playlist.songIds) {
+            val s = allSongs.find { it.id == id } ?: continue
+            val secs = (s.duration / 1000).coerceAtLeast(0)
+            sb.append("#EXTINF:$secs,${s.artist} - ${s.title}\n")
+            sb.append("${s.dataPath}\n")
+        }
+
+        file.writeText(sb.toString(), Charsets.UTF_8)
+        file
+    }
+
+    // Importar lista .M3U
+    suspend fun importFromM3u(file: File, allSongs: List<Song>): Playlist? = withContext(Dispatchers.IO) {
+        try {
+            if (!file.exists()) return@withContext null
+            val playlistName = file.nameWithoutExtension
+            val matchedIds = mutableListOf<Long>()
+
+            file.forEachLine { rawLine ->
+                val line = rawLine.trim()
+                if (line.isNotEmpty() && !line.startsWith("#")) {
+                    val song = allSongs.find {
+                        it.dataPath.equals(line, ignoreCase = true) ||
+                        it.title.equals(File(line).nameWithoutExtension, ignoreCase = true)
+                    }
+                    if (song != null && !matchedIds.contains(song.id)) {
+                        matchedIds.add(song.id)
+                    }
+                }
+            }
+
+            val newPlaylist = Playlist(
+                id = UUID.randomUUID().toString(),
+                name = playlistName,
+                songIds = matchedIds
+            )
+            val current = getPlaylists().toMutableList()
+            current.add(newPlaylist)
+            savePlaylists(current)
+            newPlaylist
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 }

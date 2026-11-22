@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">Boumusic</string>
+    <string name="search_hint">Search songs, artists or albums...</string>
+    <string name="no_songs_found">No songs found</string>
+    <string name="permission_required">Permission required</string>
+    <string name="permission_desc">Boumusic needs storage permission to scan and play your local audio files (MP3, FLAC, AAC) with zero ads.</string>
+    <string name="grant_permission">Grant permission</string>
+    <string name="refresh">Refresh library</string>
+    <string name="unknown_artist">Unknown artist</string>
+    <string name="unknown_album">Unknown album</string>
+    <string name="empty_library">Transfer songs from your PC via Wi-Fi or copy them to your Music folder to get started.</string>
+    <string name="sleep_timer">Sleep timer</string>
+    <string name="play_next">Play next</string>
+    <string name="add_to_playlist">Add to playlist</string>
+    <string name="tab_songs">Songs</string>
+    <string name="tab_playlists">Playlists</string>
+    <string name="tab_ftp">FTP Server</string>
+    <string name="all_songs">All</string>
+    <string name="artists">Artists</string>
+    <string name="albums">Albums</string>
+</resources>

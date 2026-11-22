@@ -1,5 +1,6 @@
 package com.boumusic.player.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,12 +22,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -67,6 +69,7 @@ fun PlaylistsScreen(
     viewModel: MusicViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val playlists by viewModel.playlists.collectAsState()
     val allSongs by viewModel.songs.collectAsState()
     val currentSong by viewModel.currentSong.collectAsState()
@@ -151,6 +154,23 @@ fun PlaylistsScreen(
                             color = TextSecondary
                         )
                     }
+
+                    // Botón Exportar a M3U
+                    IconButton(
+                        onClick = {
+                            viewModel.exportPlaylistM3u(playlist) { file ->
+                                Toast.makeText(context, "Exportada en: Music/Boumusic/Playlists/${file.name}", Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(DarkSurfaceVariant)
+                    ) {
+                        Icon(Icons.Default.FileUpload, contentDescription = "Exportar a .M3U", tint = NeonCyan, modifier = Modifier.size(20.dp))
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     if (playlistSongs.isNotEmpty()) {
                         IconButton(

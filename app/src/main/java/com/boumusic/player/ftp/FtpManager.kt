@@ -1,5 +1,6 @@
 package com.boumusic.player.ftp
 
+import android.content.Context
 import com.boumusic.player.model.FtpConfig
 import com.boumusic.player.model.FtpItem
 import kotlinx.coroutines.Dispatchers
@@ -7,13 +8,89 @@ import kotlinx.coroutines.withContext
 import org.apache.commons.net.ftp.FTP
 import org.apache.commons.net.ftp.FTPClient
 import org.apache.commons.net.ftp.FTPReply
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
+import java.util.UUID
 
-class FtpManager {
+class FtpManager(private val context: Context? = null) {
 
     private var activeConfig: FtpConfig? = null
+
+    private val profilesFile: File?
+        get() = context?.let { File(it.filesDir, "ftp_profiles.json") }
+
+    suspend fun getSavedConfigs(): List<FtpConfig> = withContext(Dispatchers.IO) {
+        val list = mutableListOf<FtpConfig>()
+        val file = profilesFile ?: return@withContext list
+        if (!file.exists()) return@withContext list
+
+        try {
+            val arr = JSONArray(file.readText(Charsets.UTF_8))
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                list.add(
+                    FtpConfig(
+                        id = o.optString("id", UUID.randomUUID().toString()),
+                        name = o.optString("name", "Servidor"),
+                        host = o.optString("host", ""),
+                        port = o.optInt("port", 21),
+                        username = o.optString("username", "anonymous"),
+                        password = o.optString("password", "")
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        list
+    }
+
+    suspend fun saveConfig(config: FtpConfig) = withContext(Dispatchers.IO) {
+        val file = profilesFile ?: return@withContext
+        val list = getSavedConfigs().filter { it.id != config.id }.toMutableList()
+        list.add(0, config)
+
+        try {
+            val arr = JSONArray()
+            for (c in list) {
+                val o = JSONObject()
+                o.put("id", c.id)
+                o.put("name", c.name)
+                o.put("host", c.host)
+                o.put("port", c.port)
+                o.put("username", c.username)
+                o.put("password", c.password)
+                arr.put(o)
+            }
+            file.writeText(arr.toString(2), Charsets.UTF_8)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun deleteConfig(id: String) = withContext(Dispatchers.IO) {
+        val file = profilesFile ?: return@withContext
+        val list = getSavedConfigs().filter { it.id != id }
+        try {
+            val arr = JSONArray()
+            for (c in list) {
+                val o = JSONObject()
+                o.put("id", c.id)
+                o.put("name", c.name)
+                o.put("host", c.host)
+                o.put("port", c.port)
+                o.put("username", c.username)
+                o.put("password", c.password)
+                arr.put(o)
+            }
+            file.writeText(arr.toString(2), Charsets.UTF_8)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 
     suspend fun connect(config: FtpConfig): Result<Boolean> = withContext(Dispatchers.IO) {
         val client = FTPClient()
@@ -39,6 +116,7 @@ class FtpManager {
             client.enterLocalPassiveMode()
             client.setFileType(FTP.BINARY_FILE_TYPE)
             activeConfig = config
+            saveConfig(config)
             client.disconnect()
             Result.success(true)
         } catch (e: Exception) {
@@ -71,7 +149,6 @@ class FtpManager {
             }
 
             client.disconnect()
-            // Ordenar: primero carpetas y luego archivos de audio
             val sorted = items.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
             Result.success(sorted)
         } catch (e: Exception) {

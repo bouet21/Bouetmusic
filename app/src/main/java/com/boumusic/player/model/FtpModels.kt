@@ -1,6 +1,10 @@
 package com.boumusic.player.model
 
+import java.util.UUID
+
 data class FtpConfig(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String = "Servidor FTP",
     val host: String = "",
     val port: Int = 21,
     val username: String = "anonymous",

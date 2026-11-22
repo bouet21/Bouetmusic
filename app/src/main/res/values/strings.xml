@@ -9,4 +9,13 @@
     <string name="unknown_artist">Artista desconocido</string>
     <string name="unknown_album">Álbum desconocido</string>
     <string name="empty_library">Copia tus canciones a la carpeta Music o Descargas de tu teléfono para comenzar a escuchar.</string>
+    <string name="sleep_timer">Temporizador de apagado</string>
+    <string name="play_next">Reproducir a continuación</string>
+    <string name="add_to_playlist">Añadir a lista</string>
+    <string name="tab_songs">Canciones</string>
+    <string name="tab_playlists">Listas</string>
+    <string name="tab_ftp">Servidor FTP</string>
+    <string name="all_songs">Todas</string>
+    <string name="artists">Artistas</string>
+    <string name="albums">Álbumes</string>
 </resources>

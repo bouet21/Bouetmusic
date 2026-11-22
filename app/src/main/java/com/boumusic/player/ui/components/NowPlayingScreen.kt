@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
@@ -25,12 +27,17 @@ import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -53,6 +60,7 @@ import coil.compose.AsyncImage
 import com.boumusic.player.model.Song
 import com.boumusic.player.ui.theme.DarkBackground
 import com.boumusic.player.ui.theme.DarkCardBorder
+import com.boumusic.player.ui.theme.DarkSurface
 import com.boumusic.player.ui.theme.DarkSurfaceVariant
 import com.boumusic.player.ui.theme.DeepCyan
 import com.boumusic.player.ui.theme.ElectricPurple
@@ -68,6 +76,7 @@ fun NowPlayingScreen(
     duration: Long,
     isShuffleEnabled: Boolean,
     repeatMode: Int,
+    sleepTimerMinutesLeft: Int? = null,
     onCollapse: () -> Unit,
     onPlayPauseClick: () -> Unit,
     onPreviousClick: () -> Unit,
@@ -75,10 +84,12 @@ fun NowPlayingScreen(
     onSeek: (Long) -> Unit,
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
+    onSetSleepTimer: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isUserDraggingSlider by remember { mutableStateOf(false) }
     var draggedPosition by remember { mutableFloatStateOf(0f) }
+    var showSleepTimerDialog by remember { mutableStateOf(false) }
 
     val effectivePosition = if (isUserDraggingSlider) draggedPosition.toLong() else currentPosition
     val safeDuration = duration.coerceAtLeast(1L)
@@ -89,6 +100,70 @@ fun NowPlayingScreen(
         val mins = totalSecs / 60
         val secs = totalSecs % 60
         return String.format("%02d:%02d", mins, secs)
+    }
+
+    if (showSleepTimerDialog) {
+        AlertDialog(
+            onDismissRequest = { showSleepTimerDialog = false },
+            containerColor = DarkSurface,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Bedtime, contentDescription = null, tint = NeonCyan)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Temporizador de Apagado", color = TextPrimary, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        text = if (sleepTimerMinutesLeft != null) {
+                            "Apagado programado en: $sleepTimerMinutesLeft minutos"
+                        } else {
+                            "Selecciona en cuántos minutos pausar la reproducción automáticamente:"
+                        },
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    val presets = listOf(15, 30, 45, 60, 90)
+                    presets.forEach { mins ->
+                        Button(
+                            onClick = {
+                                onSetSleepTimer(mins)
+                                showSleepTimerDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceVariant),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Text("$mins minutos", color = TextPrimary)
+                        }
+                    }
+
+                    if (sleepTimerMinutesLeft != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                onSetSleepTimer(0) // cancelar
+                                showSleepTimerDialog = false
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.2f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Cancelar temporizador", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showSleepTimerDialog = false }) {
+                    Text("Cerrar", color = TextSecondary)
+                }
+            }
+        )
     }
 
     Column(
@@ -122,16 +197,33 @@ fun NowPlayingScreen(
                 color = TextSecondary
             )
 
-            // Espaciador para centrar el texto
-            Spacer(modifier = Modifier.size(48.dp))
+            // Botón temporizador de apagado
+            IconButton(onClick = { showSleepTimerDialog = true }) {
+                Box(contentAlignment = Alignment.TopEnd) {
+                    Icon(
+                        imageVector = Icons.Default.Bedtime,
+                        contentDescription = "Temporizador de apagado",
+                        tint = if (sleepTimerMinutesLeft != null) NeonCyan else TextSecondary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    if (sleepTimerMinutesLeft != null) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(NeonCyan)
+                        )
+                    }
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Gran portada de álbum central
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.85f)
+                .fillMaxWidth(0.82f)
                 .aspectRatio(1f)
                 .shadow(elevation = 20.dp, shape = RoundedCornerShape(24.dp), ambientColor = ElectricPurple, spotColor = NeonCyan)
                 .clip(RoundedCornerShape(24.dp))
@@ -154,12 +246,12 @@ fun NowPlayingScreen(
                     imageVector = Icons.Default.MusicNote,
                     contentDescription = null,
                     tint = TextPrimary.copy(alpha = 0.9f),
-                    modifier = Modifier.size(100.dp)
+                    modifier = Modifier.size(90.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
         // Título y artista
         Text(
@@ -175,7 +267,7 @@ fun NowPlayingScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Text(
             text = "${song.artist} • ${song.album}",
@@ -187,7 +279,7 @@ fun NowPlayingScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Barra de progreso y tiempos (Slider)
         Slider(
@@ -254,10 +346,10 @@ fun NowPlayingScreen(
                 )
             }
 
-            // Reproducir / Pausar (botón principal destacado)
+            // Reproducir / Pausar
             Box(
                 modifier = Modifier
-                    .size(72.dp)
+                    .size(70.dp)
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
@@ -271,7 +363,7 @@ fun NowPlayingScreen(
                     imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                     contentDescription = if (isPlaying) "Pausar" else "Reproducir",
                     tint = DarkBackground,
-                    modifier = Modifier.size(38.dp)
+                    modifier = Modifier.size(36.dp)
                 )
             }
 

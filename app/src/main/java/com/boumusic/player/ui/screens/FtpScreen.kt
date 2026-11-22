@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MusicNote
@@ -55,6 +57,7 @@ import com.boumusic.player.model.FtpItem
 import com.boumusic.player.ui.theme.DarkCardBorder
 import com.boumusic.player.ui.theme.DarkSurface
 import com.boumusic.player.ui.theme.DarkSurfaceVariant
+import com.boumusic.player.ui.theme.DeepCyan
 import com.boumusic.player.ui.theme.ElectricPurple
 import com.boumusic.player.ui.theme.NeonCyan
 import com.boumusic.player.ui.theme.TextPrimary
@@ -72,7 +75,9 @@ fun FtpScreen(
     val ftpItems by viewModel.ftpItems.collectAsState()
     val currentPath by viewModel.ftpCurrentPath.collectAsState()
     val errorMessage by viewModel.ftpErrorMessage.collectAsState()
+    val savedConfigs by viewModel.savedFtpConfigs.collectAsState()
 
+    var name by remember { mutableStateOf("Mi Servidor FTP") }
     var host by remember { mutableStateOf("192.168.1.100") }
     var port by remember { mutableStateOf("21") }
     var user by remember { mutableStateOf("anonymous") }
@@ -93,7 +98,7 @@ fun FtpScreen(
             Icon(Icons.Default.Storage, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(28.dp))
             Spacer(modifier = Modifier.width(10.dp))
             Text(
-                text = "Explorador de Servidor FTP",
+                text = "Servidor FTP & Streaming",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = TextPrimary
             )
@@ -108,88 +113,155 @@ fun FtpScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         if (!isConnected) {
-            // Formulario de conexión FTP
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(DarkSurface)
-                    .padding(20.dp)
-            ) {
-                Text(
-                    text = "Conectar a Servidor FTP Local o Remoto",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextPrimary
-                )
-                Spacer(modifier = Modifier.height(14.dp))
+            LazyColumn(modifier = Modifier.weight(1f)) {
+                item {
+                    // Servidores guardados
+                    if (savedConfigs.isNotEmpty()) {
+                        Text(
+                            text = "SERVIDORES GUARDADOS",
+                            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold),
+                            color = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = host,
-                        onValueChange = { host = it },
-                        label = { Text("Host / Dirección IP", color = TextSecondary) },
-                        singleLine = true,
-                        modifier = Modifier.weight(2f),
-                        colors = ftpTextFieldColors()
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    OutlinedTextField(
-                        value = port,
-                        onValueChange = { port = it },
-                        label = { Text("Puerto", color = TextSecondary) },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        colors = ftpTextFieldColors()
-                    )
-                }
+                        savedConfigs.forEach { cfg ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(DarkSurface)
+                                    .clickable {
+                                        name = cfg.name
+                                        host = cfg.host
+                                        port = cfg.port.toString()
+                                        user = cfg.username
+                                        pass = cfg.password
+                                        viewModel.connectFtp(cfg)
+                                    }
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Bookmark, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(22.dp))
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(cfg.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Text("${cfg.host}:${cfg.port} (${cfg.username})", color = TextSecondary, fontSize = 12.sp)
+                                }
+                                IconButton(
+                                    onClick = { viewModel.deleteSavedFtpConfig(cfg.id) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = TextSecondary.copy(alpha = 0.5f))
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                        }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
 
-                OutlinedTextField(
-                    value = user,
-                    onValueChange = { user = it },
-                    label = { Text("Usuario (o 'anonymous')", color = TextSecondary) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ftpTextFieldColors()
-                )
+                    // Formulario de conexión FTP
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(DarkSurface)
+                            .padding(20.dp)
+                    ) {
+                        Text(
+                            text = "Nueva Conexión FTP",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { name = it },
+                            label = { Text("Nombre del servidor (ej: NAS Salón)", color = TextSecondary) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ftpTextFieldColors()
+                        )
 
-                OutlinedTextField(
-                    value = pass,
-                    onValueChange = { pass = it },
-                    label = { Text("Contraseña", color = TextSecondary) },
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ftpTextFieldColors()
-                )
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                if (errorMessage != null) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = errorMessage!!,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(
+                                value = host,
+                                onValueChange = { host = it },
+                                label = { Text("Dirección IP / Host", color = TextSecondary) },
+                                singleLine = true,
+                                modifier = Modifier.weight(2f),
+                                colors = ftpTextFieldColors()
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            OutlinedTextField(
+                                value = port,
+                                onValueChange = { port = it },
+                                label = { Text("Puerto", color = TextSecondary) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                colors = ftpTextFieldColors()
+                            )
+                        }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                Button(
-                    onClick = {
-                        val parsedPort = port.toIntOrNull() ?: 21
-                        viewModel.connectFtp(FtpConfig(host.trim(), parsedPort, user.trim(), pass))
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
-                    enabled = !isLoading && host.isNotBlank()
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(color = DarkSurface, modifier = Modifier.size(20.dp))
-                    } else {
-                        Text("Conectar y Explorar Música", color = DarkSurface, fontWeight = FontWeight.Bold)
+                        OutlinedTextField(
+                            value = user,
+                            onValueChange = { user = it },
+                            label = { Text("Usuario (o 'anonymous')", color = TextSecondary) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ftpTextFieldColors()
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        OutlinedTextField(
+                            value = pass,
+                            onValueChange = { pass = it },
+                            label = { Text("Contraseña", color = TextSecondary) },
+                            visualTransformation = PasswordVisualTransformation(),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ftpTextFieldColors()
+                        )
+
+                        if (errorMessage != null) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = errorMessage!!,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Button(
+                            onClick = {
+                                val parsedPort = port.toIntOrNull() ?: 21
+                                val cfg = FtpConfig(
+                                    name = name.ifBlank { "Servidor FTP" },
+                                    host = host.trim(),
+                                    port = parsedPort,
+                                    username = user.trim(),
+                                    password = pass
+                                )
+                                viewModel.connectFtp(cfg)
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
+                            enabled = !isLoading && host.isNotBlank()
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(color = DarkSurface, modifier = Modifier.size(20.dp))
+                            } else {
+                                Text("Conectar y Guardar Servidor", color = DarkSurface, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
                 }
             }
