@@ -20,8 +20,11 @@ import com.boumusic.player.ftp.FtpStreamBridge
 import com.boumusic.player.model.FtpConfig
 import com.boumusic.player.model.FtpItem
 import com.boumusic.player.model.Playlist
+import com.boumusic.player.model.ShareTarget
+import com.boumusic.player.model.ShareType
 import com.boumusic.player.model.Song
 import com.boumusic.player.service.MusicService
+import com.boumusic.player.transfer.NetworkUtils
 import com.boumusic.player.transfer.TransferServer
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -163,6 +166,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _transferredFilesCount = MutableStateFlow(0)
     val transferredFilesCount: StateFlow<Int> = _transferredFilesCount.asStateFlow()
+
+    // Compartir canciones y listas vía QR
+    private val _shareTarget = MutableStateFlow<ShareTarget?>(null)
+    val shareTarget: StateFlow<ShareTarget?> = _shareTarget.asStateFlow()
 
     private var mediaController: MediaController? = null
     private var progressJob: Job? = null
@@ -512,7 +519,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // TRANSFERENCIA WI-FI
+    // TRANSFERENCIA WI-FI Y COMPARTIR POR QR
     fun setTransferScreenOpen(open: Boolean) {
         _isTransferScreenOpen.value = open
     }
@@ -520,10 +527,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun startTransferServer() {
         if (transferServer == null) {
             val context = getApplication<Application>()
-            transferServer = TransferServer(context) { filename ->
+            transferServer = TransferServer(
+                context = context,
+                songProvider = { _songs.value },
+                playlistProvider = { _playlists.value }
+            ) { filename ->
                 _transferredFilesCount.value += 1
                 loadSongs()
             }
+        } else {
+            transferServer?.songProvider = { _songs.value }
+            transferServer?.playlistProvider = { _playlists.value }
         }
         transferServer?.start(
             onSuccess = { url ->
@@ -541,6 +555,29 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         transferServer?.stop()
         _isTransferServerRunning.value = false
         _transferServerUrl.value = null
+    }
+
+    fun shareSong(song: Song) {
+        startTransferServer()
+        _shareTarget.value = ShareTarget(ShareType.SONG, song = song)
+    }
+
+    fun sharePlaylist(playlist: Playlist) {
+        startTransferServer()
+        _shareTarget.value = ShareTarget(ShareType.PLAYLIST, playlist = playlist)
+    }
+
+    fun dismissShareDialog() {
+        _shareTarget.value = null
+    }
+
+    fun getShareUrl(target: ShareTarget): String {
+        val context = getApplication<Application>()
+        val ip = NetworkUtils.getLocalIpAddress(context) ?: "127.0.0.1"
+        return when (target.type) {
+            ShareType.SONG -> "http://$ip:8080/share/song?id=${target.song?.id}"
+            ShareType.PLAYLIST -> "http://$ip:8080/share/playlist?id=${target.playlist?.id}"
+        }
     }
 
     fun playSong(selectedSong: Song) {

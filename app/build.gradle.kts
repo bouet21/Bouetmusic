@@ -12,8 +12,8 @@ android {
         applicationId = "com.boumusic.player"
         minSdk = 24
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.2.1"
+        versionCode = 6
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -74,6 +74,9 @@ dependencies {
 
     // Apache Commons Net para cliente y streaming FTP
     implementation("commons-net:commons-net:3.10.0")
+
+    // ZXing para generación y codificación de códigos QR
+    implementation("com.google.zxing:core:3.5.3")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -154,6 +155,19 @@ fun PlaylistsScreen(
                             color = TextSecondary
                         )
                     }
+
+                    // Botón Compartir Lista por QR
+                    IconButton(
+                        onClick = { viewModel.sharePlaylist(playlist) },
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(DarkSurfaceVariant)
+                    ) {
+                        Icon(Icons.Default.QrCode2, contentDescription = "Compartir lista por QR", tint = NeonCyan, modifier = Modifier.size(20.dp))
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     // Botón Exportar a M3U
                     IconButton(
@@ -298,6 +312,7 @@ fun PlaylistsScreen(
                                 playlist = playlist,
                                 onOpen = { viewModel.selectPlaylist(playlist) },
                                 onPlay = { viewModel.playPlaylist(playlist) },
+                                onShareQr = { viewModel.sharePlaylist(playlist) },
                                 onDelete = { viewModel.deletePlaylist(playlist.id) }
                             )
                             Spacer(modifier = Modifier.height(10.dp))
@@ -314,6 +329,7 @@ private fun PlaylistItemCard(
     playlist: Playlist,
     onOpen: () -> Unit,
     onPlay: () -> Unit,
+    onShareQr: () -> Unit,
     onDelete: () -> Unit
 ) {
     Row(
@@ -360,11 +376,15 @@ private fun PlaylistItemCard(
             )
         }
 
-        IconButton(onClick = onPlay, modifier = Modifier.size(40.dp)) {
+        IconButton(onClick = onPlay, modifier = Modifier.size(38.dp)) {
             Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir", tint = NeonCyan)
         }
 
-        IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
+        IconButton(onClick = onShareQr, modifier = Modifier.size(38.dp)) {
+            Icon(Icons.Default.QrCode2, contentDescription = "Compartir lista por QR", tint = NeonCyan)
+        }
+
+        IconButton(onClick = onDelete, modifier = Modifier.size(38.dp)) {
             Icon(Icons.Default.Delete, contentDescription = "Eliminar", tint = TextSecondary.copy(alpha = 0.5f))
         }
     }

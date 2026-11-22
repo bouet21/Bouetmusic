@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.PlaylistPlay
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -75,9 +76,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.boumusic.player.R
+import com.boumusic.player.model.ShareType
 import com.boumusic.player.model.Song
 import com.boumusic.player.ui.components.MiniPlayer
 import com.boumusic.player.ui.components.NowPlayingScreen
+import com.boumusic.player.ui.components.ShareQrDialog
 import com.boumusic.player.ui.components.SongListItem
 import com.boumusic.player.ui.theme.DarkBackground
 import com.boumusic.player.ui.theme.DarkCardBorder
@@ -117,12 +120,30 @@ fun MainScreen(
     val sleepTimerMinutesLeft by viewModel.sleepTimerMinutesLeft.collectAsState()
     val hasPermission by viewModel.hasPermission.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val shareTarget by viewModel.shareTarget.collectAsState()
 
     var songForOptionsMenu by remember { mutableStateOf<Song?>(null) }
     var showCreatePlaylistInDialog by remember { mutableStateOf(false) }
     var newPlaylistNameInDialog by remember { mutableStateOf("") }
 
-    // Menú de opciones de canción (Reproducir a continuación, Añadir a lista)
+    // Diálogo QR para compartir canción o lista
+    if (shareTarget != null) {
+        val target = shareTarget!!
+        val title = if (target.type == ShareType.SONG) "Compartir Canción" else "Compartir Lista"
+        val subtitle = if (target.type == ShareType.SONG) {
+            "${target.song?.title} • ${target.song?.artist}"
+        } else {
+            "${target.playlist?.name} (${target.playlist?.songIds?.size ?: 0} canciones)"
+        }
+        ShareQrDialog(
+            title = title,
+            subtitle = subtitle,
+            shareUrl = viewModel.getShareUrl(target),
+            onDismiss = { viewModel.dismissShareDialog() }
+        )
+    }
+
+    // Menú de opciones de canción (Reproducir a continuación, Añadir a lista, Compartir vía QR)
     if (songForOptionsMenu != null) {
         val s = songForOptionsMenu!!
         AlertDialog(
@@ -167,6 +188,22 @@ fun MainScreen(
                         Icon(Icons.Default.PlaylistAdd, contentDescription = null, tint = NeonCyan)
                         Spacer(modifier = Modifier.width(12.dp))
                         Text("Añadir a lista de reproducción...", color = TextPrimary, fontWeight = FontWeight.Medium)
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                viewModel.shareSong(s)
+                                songForOptionsMenu = null
+                            }
+                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.QrCode2, contentDescription = null, tint = NeonCyan)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Compartir canción con QR", color = TextPrimary, fontWeight = FontWeight.Medium)
                     }
                 }
             },
@@ -600,7 +637,8 @@ fun MainScreen(
                         onSeek = { viewModel.seekTo(it) },
                         onToggleShuffle = { viewModel.toggleShuffle() },
                         onCycleRepeat = { viewModel.cycleRepeatMode() },
-                        onSetSleepTimer = { viewModel.setSleepTimer(it) }
+                        onSetSleepTimer = { viewModel.setSleepTimer(it) },
+                        onShareQrClick = { viewModel.shareSong(it) }
                     )
                 }
             }

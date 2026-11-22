@@ -271,6 +271,14 @@ fun TransferScreen(
             title = "Arrastra y suelta tus archivos",
             description = "Arrastra tus canciones MP3 o FLAC a la ventana del navegador. Boumusic creará la carpeta automáticamente y las indexará al instante."
         )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        InstructionStep(
+            number = "4",
+            title = "Comparte con amigos mediante QR",
+            description = "Pulsa en los tres puntos (⋮) de cualquier canción o lista y elige 'Compartir con QR'. Tu amigo podrá escanearlo con su cámara y descargar la música al instante."
+        )
     }
 }
 

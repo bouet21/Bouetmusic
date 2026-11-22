@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
@@ -85,6 +86,7 @@ fun NowPlayingScreen(
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
     onSetSleepTimer: (Int) -> Unit = {},
+    onShareQrClick: (Song) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isUserDraggingSlider by remember { mutableStateOf(false) }
@@ -197,22 +199,34 @@ fun NowPlayingScreen(
                 color = TextSecondary
             )
 
-            // Botón temporizador de apagado
-            IconButton(onClick = { showSleepTimerDialog = true }) {
-                Box(contentAlignment = Alignment.TopEnd) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Botón compartir por código QR
+                IconButton(onClick = { onShareQrClick(song) }) {
                     Icon(
-                        imageVector = Icons.Default.Bedtime,
-                        contentDescription = "Temporizador de apagado",
-                        tint = if (sleepTimerMinutesLeft != null) NeonCyan else TextSecondary,
+                        imageVector = Icons.Default.QrCode2,
+                        contentDescription = "Compartir por código QR",
+                        tint = NeonCyan,
                         modifier = Modifier.size(24.dp)
                     )
-                    if (sleepTimerMinutesLeft != null) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(NeonCyan)
+                }
+
+                // Botón temporizador de apagado
+                IconButton(onClick = { showSleepTimerDialog = true }) {
+                    Box(contentAlignment = Alignment.TopEnd) {
+                        Icon(
+                            imageVector = Icons.Default.Bedtime,
+                            contentDescription = "Temporizador de apagado",
+                            tint = if (sleepTimerMinutesLeft != null) NeonCyan else TextSecondary,
+                            modifier = Modifier.size(24.dp)
                         )
+                        if (sleepTimerMinutesLeft != null) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(NeonCyan)
+                            )
+                        }
                     }
                 }
             }

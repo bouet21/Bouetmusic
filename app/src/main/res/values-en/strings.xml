@@ -18,4 +18,7 @@
     <string name="all_songs">All</string>
     <string name="artists">Artists</string>
     <string name="albums">Albums</string>
+    <string name="share_qr">Share via QR</string>
+    <string name="share_song">Share song</string>
+    <string name="share_playlist">Share playlist</string>
 </resources>
