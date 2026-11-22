@@ -16,6 +16,8 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.boumusic.player.audio.EqualizerManager
+import android.media.MediaScannerConnection
+import com.boumusic.player.data.BackupManager
 import com.boumusic.player.data.HistoryAndStatsManager
 import com.boumusic.player.data.MusicRepository
 import com.boumusic.player.data.PlaylistRepository
@@ -28,6 +30,7 @@ import com.boumusic.player.model.ShareTarget
 import com.boumusic.player.model.ShareType
 import com.boumusic.player.model.Song
 import com.boumusic.player.model.SongHistoryItem
+import com.boumusic.player.model.SongSortOrder
 import com.boumusic.player.service.MusicService
 import com.boumusic.player.transfer.NetworkUtils
 import com.boumusic.player.transfer.TransferServer
@@ -55,6 +58,20 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val ftpStreamBridge = FtpStreamBridge(ftpManager)
     val equalizerManager = EqualizerManager(application)
     val historyManager = HistoryAndStatsManager(application)
+    private val audioPrefs = application.getSharedPreferences("boumusic_audio_prefs", Context.MODE_PRIVATE)
+
+    // Orden de clasificación de canciones
+    private val _songSortOrder = MutableStateFlow(
+        runCatching {
+            SongSortOrder.valueOf(audioPrefs.getString("song_sort_order", SongSortOrder.DEFAULT.name) ?: SongSortOrder.DEFAULT.name)
+        }.getOrDefault(SongSortOrder.DEFAULT)
+    )
+    val songSortOrder: StateFlow<SongSortOrder> = _songSortOrder.asStateFlow()
+
+    fun setSongSortOrder(order: SongSortOrder) {
+        _songSortOrder.value = order
+        audioPrefs.edit().putString("song_sort_order", order.name).apply()
+    }
 
     // Historial de canciones y estadísticas
     val historySongs: StateFlow<List<SongHistoryItem>> = historyManager.historyFlow
@@ -112,7 +129,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    val filteredSongs: StateFlow<List<Song>> = combine(
+    private val rawFilteredSongs: StateFlow<List<Song>> = combine(
         _songs,
         _searchQuery,
         _selectedArtist,
@@ -135,6 +152,19 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                     s.genre.contains(q, ignoreCase = true)
                 ))
             }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val filteredSongs: StateFlow<List<Song>> = combine(
+        rawFilteredSongs,
+        _songSortOrder
+    ) { songList, sortOrder ->
+        when (sortOrder) {
+            SongSortOrder.DEFAULT -> songList
+            SongSortOrder.TITLE_ASC -> songList.sortedBy { it.title.lowercase() }
+            SongSortOrder.ARTIST_ASC -> songList.sortedWith(compareBy({ it.artist.lowercase() }, { it.title.lowercase() }))
+            SongSortOrder.DURATION_DESC -> songList.sortedByDescending { it.duration }
+            SongSortOrder.RECENT -> songList.sortedByDescending { it.id }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -271,7 +301,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val minDurationSeconds: StateFlow<Int> = _minDurationSeconds.asStateFlow()
 
     // Crossfade (Fundido cruzado)
-    private val audioPrefs = application.getSharedPreferences("boumusic_audio_prefs", Context.MODE_PRIVATE)
     private val _crossfadeSeconds = MutableStateFlow(audioPrefs.getInt("crossfade_seconds", 3))
     val crossfadeSeconds: StateFlow<Int> = _crossfadeSeconds.asStateFlow()
 
@@ -382,16 +411,17 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun handleFtpSongUnavailable(song: Song, player: Player) {
         val context = getApplication<Application>()
+        val protocolName = _currentFtpConfig.value?.protocolLabel ?: "Remoto"
         consecutiveFtpSkips++
 
         // 1. Mostrar notificación en la barra de estado
-        NotificationHelper.notifyFtpSkipped(context, song.title)
+        NotificationHelper.notifyRemoteSkipped(context, song.title, protocolName)
 
         // 2. Mostrar Toast inmediato en la interfaz
         viewModelScope.launch(Dispatchers.Main) {
             Toast.makeText(
                 context,
-                "Servidor FTP no disponible: saltando \"${song.title}\"",
+                "Servidor $protocolName no disponible: saltando \"${song.title}\"",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -1081,14 +1111,29 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun downloadFtpSong(item: FtpItem, onDone: () -> Unit) {
         viewModelScope.launch {
+            val context = getApplication<Application>()
             val musicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
             val destDir = File(musicDir, "Boumusic").apply { if (!exists()) mkdirs() }
             val destFile = File(destDir, item.name)
 
+            NotificationHelper.notifyDownloadStarted(context, item.name)
+            Toast.makeText(context, "Descargando: ${item.name}...", Toast.LENGTH_SHORT).show()
+
             val result = ftpManager.downloadSong(item.path, destFile) {}
             if (result.isSuccess) {
-                loadSongs()
+                MediaScannerConnection.scanFile(
+                    context,
+                    arrayOf(destFile.absolutePath),
+                    arrayOf("audio/*")
+                ) { _, _ ->
+                    viewModelScope.launch { loadSongs() }
+                }
+                NotificationHelper.notifyDownloadCompleted(context, item.name, true)
+                Toast.makeText(context, "Descarga completada: ${item.name}", Toast.LENGTH_SHORT).show()
                 onDone()
+            } else {
+                NotificationHelper.notifyDownloadCompleted(context, item.name, false)
+                Toast.makeText(context, "Error al descargar: ${result.exceptionOrNull()?.message ?: "Servidor no responde"}", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -1099,8 +1144,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startTransferServer() {
+        val context = getApplication<Application>()
         if (transferServer == null) {
-            val context = getApplication<Application>()
             transferServer = TransferServer(
                 context = context,
                 songProvider = { _songs.value },
@@ -1113,14 +1158,21 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             transferServer?.songProvider = { _songs.value }
             transferServer?.playlistProvider = { _playlists.value }
         }
+        transferServer?.onAutoStopped = {
+            _isTransferServerRunning.value = false
+            _transferServerUrl.value = null
+            NotificationHelper.notifyTransferServerState(context, false, null)
+        }
         transferServer?.start(
             onSuccess = { url ->
                 _isTransferServerRunning.value = true
                 _transferServerUrl.value = url
+                NotificationHelper.notifyTransferServerState(context, true, url)
             },
             onError = {
                 _isTransferServerRunning.value = false
                 _transferServerUrl.value = null
+                NotificationHelper.notifyTransferServerState(context, false, null)
             }
         )
     }
@@ -1129,6 +1181,88 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         transferServer?.stop()
         _isTransferServerRunning.value = false
         _transferServerUrl.value = null
+        NotificationHelper.notifyTransferServerState(getApplication(), false, null)
+    }
+
+    // EXPORTACIÓN E IMPORTACIÓN DE COPIA DE SEGURIDAD Y M3U8
+    fun exportBackup(onResult: (File?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val servers = _savedFtpConfigs.value
+                val playlists = _playlists.value
+                val settings = mapOf(
+                    "crossfade_seconds" to _crossfadeSeconds.value,
+                    "min_duration_seconds" to _minDurationSeconds.value,
+                    "ignore_messaging" to _ignoreMessagingAudio.value,
+                    "excluded_folders" to _excludedFolders.value.toList()
+                )
+                val json = BackupManager.generateBackupJson(servers, playlists, settings)
+                val file = BackupManager.saveBackupToFile(getApplication(), json)
+                onResult(file)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(null)
+            }
+        }
+    }
+
+    fun importBackup(jsonContent: String, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val data = BackupManager.parseBackupJson(jsonContent)
+                for (s in data.servers) {
+                    ftpManager.saveConfig(s)
+                }
+                loadSavedFtpConfigs()
+
+                val currentPlaylists = _playlists.value.toMutableList()
+                for (p in data.playlists) {
+                    currentPlaylists.removeAll { it.id == p.id || it.name.equals(p.name, ignoreCase = true) }
+                    currentPlaylists.add(p)
+                }
+                playlistRepo.savePlaylists(currentPlaylists)
+                loadPlaylists()
+
+                // Restaurar ajustes si existen
+                (data.settings["crossfade_seconds"] as? Number)?.toInt()?.let { setCrossfadeSeconds(it) }
+                (data.settings["min_duration_seconds"] as? Number)?.toInt()?.let { setMinDurationSeconds(it) }
+                (data.settings["ignore_messaging"] as? Boolean)?.let { setIgnoreMessagingAudio(it) }
+
+                onDone(true)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onDone(false)
+            }
+        }
+    }
+
+    fun exportPlaylistToM3u8(playlist: Playlist, onResult: (File?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val file = BackupManager.savePlaylistM3u8ToFile(getApplication(), playlist, _songs.value)
+                onResult(file)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(null)
+            }
+        }
+    }
+
+    fun importM3u8(m3u8Content: String, fallbackName: String, onDone: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val playlist = BackupManager.parseM3u8(m3u8Content, fallbackName, _songs.value)
+                val current = _playlists.value.toMutableList()
+                current.removeAll { it.name.equals(playlist.name, ignoreCase = true) }
+                current.add(playlist)
+                playlistRepo.savePlaylists(current)
+                loadPlaylists()
+                onDone(true)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onDone(false)
+            }
+        }
     }
 
     fun openShareOptions(song: Song) {

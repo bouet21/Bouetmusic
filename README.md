@@ -15,12 +15,36 @@
 
 Descarga siempre la versión más reciente en formato APK lista para instalar en tu móvil:
 
-👉 **[Descargar Boumusic v1.9.1 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.9.1/Boumusic.apk)**  
+👉 **[Descargar Boumusic v1.9.2 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.9.2/Boumusic.apk)**  
 *(o visita todas las versiones en la sección de [Releases de GitHub](https://github.com/bouet21/Bouetmusic/releases))*
 
 ---
 
-## ✨ Novedades Principales de la v1.9.1
+## ✨ Novedades Principales de la v1.9.2
+
+### 🔄 1. Migración & Backup para Windows y Linux (JSON y M3U8)
+* **Exportación e Importación Completa (JSON)**:
+  * Exporta con un solo toque todos tus servidores remotos guardados (SMB, WebDAV, FTP), listas de reproducción y preferencias de audio a un archivo JSON estándar.
+  * Diseñado como puente de sincronización directo para el futuro cliente de escritorio de Windows y Linux.
+* **Listas Universales M3U8**:
+  * Exportación e importación de listas en formato `.m3u8`, compatible con cualquier reproductor de escritorio (VLC, foobar2000, Audacious).
+
+### 🔔 2. Sistema de Notificaciones Mejorado
+* **Descargas remotas con aviso**: Notificación en la barra de estado al iniciar y completar la descarga de canciones desde servidores SMB o FTP, con indexación inmediata en MediaStore.
+* **Servidor Wi-Fi en segundo plano**: Notificación persistente con la IP y enlace rápido mientras el servidor de transferencia desde PC está encendido.
+* **Avisos remotos precisos**: Detección y notificación contextual del protocolo (SMB, WebDAV o FTP) al saltar pistas no disponibles.
+
+### 🔀 3. Ordenación Inteligente de la Biblioteca
+* Nuevo selector rápido de ordenación con botón dedicado en la pantalla principal:
+  * **Título (A-Z)**
+  * **Artista (A-Z)**
+  * **Duración** (más largas primero)
+  * **Más recientes** (por fecha de añadido)
+  * **Por defecto**
+
+---
+
+## ✨ Novedades de la v1.9.1
 
 ### 💻 1. Soporte Nativo para Carpetas Compartidas de Windows y Linux (SMB2 / SMB3) (¡Nuevo v1.9.1!)
 * **Conexión directa a PCs con Windows y Linux**:

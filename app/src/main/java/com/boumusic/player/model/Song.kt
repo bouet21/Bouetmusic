@@ -25,3 +25,11 @@ data class Song(
             return String.format("%02d:%02d", minutes, remainingSeconds)
         }
 }
+
+enum class SongSortOrder(val displayName: String) {
+    DEFAULT("Por defecto"),
+    TITLE_ASC("Título (A-Z)"),
+    ARTIST_ASC("Artista (A-Z)"),
+    DURATION_DESC("Duración"),
+    RECENT("Más recientes")
+}

@@ -29,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.filled.Sort
+import com.boumusic.player.model.SongSortOrder
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Bedtime
@@ -138,6 +140,7 @@ fun MainScreen(
     val shareOptionsTarget by viewModel.shareOptionsTarget.collectAsState()
     val shareTarget by viewModel.shareTarget.collectAsState()
     val crossfadeSeconds by viewModel.crossfadeSeconds.collectAsState()
+    val songSortOrder by viewModel.songSortOrder.collectAsState()
 
     var songForOptionsMenu by remember { mutableStateOf<Song?>(null) }
     var showCreatePlaylistInDialog by remember { mutableStateOf(false) }
@@ -145,6 +148,7 @@ fun MainScreen(
     var showQueueSheet by remember { mutableStateOf(false) }
     var showEqualizerDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showSortDialog by remember { mutableStateOf(false) }
 
     val showStatsDialog by viewModel.showStatsDialog.collectAsState()
 
@@ -162,6 +166,49 @@ fun MainScreen(
             onOpenEqualizer = { showEqualizerDialog = true },
             onOpenStats = { viewModel.setShowStatsDialog(true) },
             onDismiss = { showSettingsDialog = false }
+        )
+    }
+
+    if (showSortDialog) {
+        AlertDialog(
+            onDismissRequest = { showSortDialog = false },
+            containerColor = DarkSurface,
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Text("Ordenar Canciones", color = TextPrimary, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    SongSortOrder.values().forEach { order ->
+                        val isSelected = songSortOrder == order
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) NeonCyan.copy(alpha = 0.15f) else Color.Transparent)
+                                .clickable {
+                                    viewModel.setSongSortOrder(order)
+                                    showSortDialog = false
+                                }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = order.displayName,
+                                color = if (isSelected) NeonCyan else TextPrimary,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showSortDialog = false }) {
+                    Text("Cerrar", color = TextSecondary)
+                }
+            }
         )
     }
 
@@ -601,39 +648,60 @@ fun MainScreen(
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = searchQuery,
-                            onValueChange = { viewModel.setSearchQuery(it) },
-                            placeholder = {
-                                Text(
-                                    text = stringResource(R.string.search_hint),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextSecondary
-                                )
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Search, contentDescription = "Buscar", tint = TextSecondary)
-                            },
-                            trailingIcon = {
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { viewModel.setSearchQuery("") }) {
-                                        Icon(Icons.Default.Clear, contentDescription = "Limpiar", tint = TextSecondary)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { viewModel.setSearchQuery(it) },
+                                placeholder = {
+                                    Text(
+                                        text = stringResource(R.string.search_hint),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = TextSecondary
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Search, contentDescription = "Buscar", tint = TextSecondary)
+                                },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { viewModel.setSearchQuery("") }) {
+                                            Icon(Icons.Default.Clear, contentDescription = "Limpiar", tint = TextSecondary)
+                                        }
                                     }
-                                }
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp)),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = DarkSurface,
-                                unfocusedContainerColor = DarkSurface,
-                                focusedBorderColor = NeonCyan,
-                                unfocusedBorderColor = Color.Transparent,
-                                focusedTextColor = TextPrimary,
-                                unfocusedTextColor = TextPrimary
-                            ),
-                            singleLine = true
-                        )
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(14.dp)),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedContainerColor = DarkSurface,
+                                    unfocusedContainerColor = DarkSurface,
+                                    focusedBorderColor = NeonCyan,
+                                    unfocusedBorderColor = Color.Transparent,
+                                    focusedTextColor = TextPrimary,
+                                    unfocusedTextColor = TextPrimary
+                                ),
+                                singleLine = true
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            IconButton(
+                                onClick = { showSortDialog = true },
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(if (songSortOrder != SongSortOrder.DEFAULT) NeonCyan.copy(alpha = 0.2f) else DarkSurface)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Sort,
+                                    contentDescription = "Ordenar",
+                                    tint = if (songSortOrder != SongSortOrder.DEFAULT) NeonCyan else TextSecondary
+                                )
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(12.dp))
 

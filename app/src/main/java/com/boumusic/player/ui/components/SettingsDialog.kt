@@ -21,6 +21,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Info
@@ -28,7 +30,10 @@ import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Wifi
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -72,9 +77,12 @@ fun SettingsDialog(
     onOpenStats: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var transferPin by remember { mutableStateOf(viewModel.transferPin.value) }
     var autoSkipFtp by remember { mutableStateOf(true) }
     var showExcludedFoldersDialog by remember { mutableStateOf(false) }
+    var showImportDialog by remember { mutableStateOf(false) }
+    var importJsonText by remember { mutableStateOf("") }
 
     val excludedFolders by viewModel.excludedFolders.collectAsState()
     val ignoreMessaging by viewModel.ignoreMessagingAudio.collectAsState()
@@ -289,7 +297,50 @@ fun SettingsDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Sección 5: Acerca de
+                // Sección 5: Migración y Copia de Seguridad (Windows / Linux)
+                SettingsSectionHeader("MIGRACIÓN & BACKUP (WINDOWS / LINUX)", Icons.Default.Sync)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            viewModel.exportBackup { file ->
+                                if (file != null) {
+                                    Toast.makeText(context, "Copia guardada: ${file.name}", Toast.LENGTH_LONG).show()
+                                } else {
+                                    Toast.makeText(context, "Error al exportar copia", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceVariant),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.FileDownload, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Exportar JSON", color = NeonCyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    Button(
+                        onClick = { showImportDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceVariant),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.FileUpload, contentDescription = null, tint = ElectricPurple, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Importar JSON", color = ElectricPurple, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+                Text("Exporta servidores SMB/FTP y listas para sincronizarlos con la app de Windows y Linux.", color = TextSecondary, fontSize = 11.sp)
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Sección 6: Acerca de
                 SettingsSectionHeader("ACERCA DE BOUMUSIC", Icons.Default.Info)
                 Box(
                     modifier = Modifier
@@ -299,8 +350,8 @@ fun SettingsDialog(
                         .padding(14.dp)
                 ) {
                     Column {
-                        Text("Boumusic v1.9.0", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text("Reproductor de audio nativo con soporte FTP, WebDAV, streaming en red, ecualizador, crossfade y transferencia sin cables.", color = TextSecondary, fontSize = 12.sp)
+                        Text("Boumusic v1.9.2", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("Reproductor de audio nativo con soporte SMB (Windows/Linux), FTP, FTPS, WebDAV, streaming en red, ecualizador, crossfade y transferencia sin cables.", color = TextSecondary, fontSize = 12.sp)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text("100% libre, sin publicidad ni rastreadores.", color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     }
@@ -366,6 +417,68 @@ fun SettingsDialog(
             confirmButton = {
                 TextButton(onClick = { showExcludedFoldersDialog = false }) {
                     Text("Cerrar", color = NeonCyan)
+                }
+            }
+        )
+    }
+
+    if (showImportDialog) {
+        AlertDialog(
+            onDismissRequest = { showImportDialog = false },
+            containerColor = DarkSurface,
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Text("Importar Configuración", color = TextPrimary, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Column {
+                    Text(
+                        "Pega el contenido del archivo JSON de copia de seguridad para restaurar servidores, listas y ajustes:",
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = importJsonText,
+                        onValueChange = { importJsonText = it },
+                        placeholder = { Text("Pega aquí el JSON...", color = TextSecondary, fontSize = 12.sp) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = DarkSurfaceVariant,
+                            unfocusedContainerColor = DarkSurfaceVariant,
+                            focusedBorderColor = NeonCyan,
+                            unfocusedBorderColor = DarkCardBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (importJsonText.isNotBlank()) {
+                            viewModel.importBackup(importJsonText) { success ->
+                                if (success) {
+                                    Toast.makeText(context, "¡Copia importada con éxito!", Toast.LENGTH_SHORT).show()
+                                    showImportDialog = false
+                                    importJsonText = ""
+                                } else {
+                                    Toast.makeText(context, "Error al procesar el archivo JSON", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan)
+                ) {
+                    Text("Restaurar", color = DarkBackground, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showImportDialog = false }) {
+                    Text("Cancelar", color = TextSecondary)
                 }
             }
         )

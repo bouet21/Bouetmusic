@@ -3,6 +3,7 @@ package com.boumusic.player
 import com.boumusic.player.audio.EqualizerBand
 import com.boumusic.player.model.FtpConfig
 import com.boumusic.player.model.FtpItem
+import com.boumusic.player.model.SongSortOrder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -50,5 +51,14 @@ class BoumusicLogicTest {
         assertEquals(0.toShort(), band.currentLevel)
         band.currentLevel = 500
         assertEquals(500.toShort(), band.currentLevel)
+    }
+
+    @Test
+    fun testSongSortOrderValues() {
+        assertEquals("Por defecto", SongSortOrder.DEFAULT.displayName)
+        assertEquals("Título (A-Z)", SongSortOrder.TITLE_ASC.displayName)
+        assertEquals("Artista (A-Z)", SongSortOrder.ARTIST_ASC.displayName)
+        assertEquals("Duración", SongSortOrder.DURATION_DESC.displayName)
+        assertEquals("Más recientes", SongSortOrder.RECENT.displayName)
     }
 }
