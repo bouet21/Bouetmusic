@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Button
@@ -318,6 +319,7 @@ fun FtpScreen(
                             item = item,
                             onOpenDir = { viewModel.navigateFtpFolder(item.path) },
                             onPlay = { viewModel.playFtpSong(item) },
+                            onAddToPlaylist = { viewModel.addFtpSongToPlaylistDialog(item) },
                             onDownload = {
                                 viewModel.downloadFtpSong(item) {
                                     Toast.makeText(context, "Canción descargada en Music/Boumusic", Toast.LENGTH_SHORT).show()
@@ -337,6 +339,7 @@ private fun FtpItemRow(
     item: FtpItem,
     onOpenDir: () -> Unit,
     onPlay: () -> Unit,
+    onAddToPlaylist: () -> Unit,
     onDownload: () -> Unit
 ) {
     Row(
@@ -385,6 +388,9 @@ private fun FtpItemRow(
         if (!item.isDirectory) {
             IconButton(onClick = onPlay, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir por streaming", tint = NeonCyan)
+            }
+            IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.PlaylistAdd, contentDescription = "Añadir a lista", tint = NeonCyan)
             }
             IconButton(onClick = onDownload, modifier = Modifier.size(36.dp)) {
                 Icon(Icons.Default.Download, contentDescription = "Descargar a local", tint = TextPrimary)

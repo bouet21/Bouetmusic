@@ -14,14 +14,22 @@
 
 Descarga siempre la versión más reciente en formato APK lista para instalar:
 
-👉 **[Descargar Boumusic v1.3.0 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.3.0/Boumusic.apk)**  
+👉 **[Descargar Boumusic v1.4.0 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.4.0/Boumusic.apk)**  
 *(o visita todas las versiones en la sección de [Releases de GitHub](https://github.com/bouet21/Bouetmusic/releases))*
 
 ---
 
 ## ✨ Características Principales
 
-### 📱 1. Compartir Música por Código QR (¡Novedad v1.3.0!)
+### 🌐 1. Canciones FTP en Listas de Reproducción y Salto Inteligente (¡Novedad v1.4.0!)
+* **Añade pistas remotas a tus listas**: Pulsa el botón `+` en cualquier pista del explorador FTP para agregarla a tus listas de reproducción favoritas junto a tus canciones locales.
+* **Distinción visual clara**: Las pistas de origen FTP muestran una etiqueta distintiva `FTP` y la procedencia del servidor.
+* **Salto automático sin cortes**: Si escuchas una lista y no estás conectado al servidor FTP (o estás fuera de tu red Wi-Fi), Boumusic detecta la falta de conexión, salta la pista remota al instante y continúa reproduciendo la siguiente canción local o disponible.
+* **Aviso y notificación del sistema**: Te envía una notificación a la barra de estado y un aviso visual indicando exactamente qué canción se ha saltado y la causa.
+
+---
+
+### 📱 2. Compartir Música por Código QR
 * **Pasa canciones y listas a tus amigos sin cables**:
   * Pulsa en el menú (⋮) de cualquier canción o en el botón QR del reproductor para generar su código QR al instante.
   * Pulsa en el icono de QR de cualquier lista de reproducción para compartirla completa.
@@ -34,7 +42,7 @@ Descarga siempre la versión más reciente en formato APK lista para instalar:
 
 ---
 
-### 🌐 2. Explorador y Streaming FTP Avanzado
+### 📡 3. Explorador y Streaming FTP Avanzado
 * **Conexión a servidores FTP**: Conéctate a tu NAS, PC, servidor doméstico o router mediante Host, Puerto, Usuario y Contraseña.
 * **Servidores favoritos**: Guarda tus configuraciones frecuentes para reconectarte en un toque.
 * **Streaming remoto fluido con soporte HTTP `Range`**: Reproduce directamente desde el servidor FTP sin esperar a que se descargue el archivo completo, con pre-buffer para evitar pausas.

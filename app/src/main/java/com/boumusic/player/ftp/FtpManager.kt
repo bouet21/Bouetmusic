@@ -19,6 +19,16 @@ class FtpManager(private val context: Context? = null) {
 
     private var activeConfig: FtpConfig? = null
 
+    val isConnected: Boolean
+        get() = activeConfig != null
+
+    val currentConfig: FtpConfig?
+        get() = activeConfig
+
+    fun disconnect() {
+        activeConfig = null
+    }
+
     private val profilesFile: File?
         get() = context?.let { File(it.filesDir, "ftp_profiles.json") }
 

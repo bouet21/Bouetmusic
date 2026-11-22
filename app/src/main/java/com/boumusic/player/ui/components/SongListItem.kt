@@ -91,21 +91,41 @@ fun SongListItem(
         Column(
             modifier = Modifier.weight(1f)
         ) {
-            Text(
-                text = song.title,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontSize = 15.sp,
-                    fontWeight = if (isPlayingThis) FontWeight.Bold else FontWeight.Medium
-                ),
-                color = if (isPlayingThis) NeonCyan else TextPrimary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = song.title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontSize = 15.sp,
+                        fontWeight = if (isPlayingThis) FontWeight.Bold else FontWeight.Medium
+                    ),
+                    color = if (isPlayingThis) NeonCyan else TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+
+                if (song.isFtp) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(NeonCyan.copy(alpha = 0.15f))
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            text = "FTP",
+                            color = NeonCyan,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.size(3.dp))
 
             Text(
-                text = "${song.artist} • ${song.album}",
+                text = if (song.isFtp) "Servidor FTP • ${song.album.ifBlank { song.ftpServerHost }}" else "${song.artist} • ${song.album}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
                 maxLines = 1,

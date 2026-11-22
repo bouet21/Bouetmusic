@@ -4,11 +4,13 @@ import android.app.Application
 import android.content.ComponentName
 import android.net.Uri
 import android.os.Environment
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -26,6 +28,8 @@ import com.boumusic.player.model.Song
 import com.boumusic.player.service.MusicService
 import com.boumusic.player.transfer.NetworkUtils
 import com.boumusic.player.transfer.TransferServer
+import com.boumusic.player.util.NotificationHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -101,6 +105,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     // Servidores FTP guardados y estado
     private val _savedFtpConfigs = MutableStateFlow<List<FtpConfig>>(emptyList())
     val savedFtpConfigs: StateFlow<List<FtpConfig>> = _savedFtpConfigs.asStateFlow()
+
+    private val _currentFtpConfig = MutableStateFlow<FtpConfig?>(null)
+    val currentFtpConfig: StateFlow<FtpConfig?> = _currentFtpConfig.asStateFlow()
 
     private val _isFtpConnected = MutableStateFlow(false)
     val isFtpConnected: StateFlow<Boolean> = _isFtpConnected.asStateFlow()
@@ -210,13 +217,29 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val mediaId = mediaItem?.mediaId?.toLongOrNull()
-                // Buscar canción tanto en canciones locales como en la lista activa del FTP
+                // Buscar canción tanto en canciones locales como en la lista activa del FTP o playlist
                 val found = _songs.value.find { it.id == mediaId }
                     ?: _currentFtpPlaylist.value.find { it.id == mediaId }
 
                 _currentSong.value = found
                 _currentPosition.value = 0L
                 _duration.value = found?.duration?.takeIf { it > 0 } ?: player.duration.coerceAtLeast(0L)
+
+                // Si es una canción remota FTP y no estamos conectados al servidor FTP
+                if (found != null && found.isFtp) {
+                    if (!_isFtpConnected.value || !ftpManager.isConnected) {
+                        handleFtpSongUnavailable(found, player)
+                        return
+                    }
+                }
+                consecutiveFtpSkips = 0
+            }
+
+            override fun onPlayerError(error: PlaybackException) {
+                val current = _currentSong.value
+                if (current != null && current.isFtp) {
+                    handleFtpSongUnavailable(current, player)
+                }
             }
 
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
@@ -237,6 +260,43 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         _isPlaying.value = player.isPlaying
         _isShuffleEnabled.value = player.shuffleModeEnabled
         _repeatMode.value = player.repeatMode
+    }
+
+    private var consecutiveFtpSkips = 0
+
+    private fun handleFtpSongUnavailable(song: Song, player: Player) {
+        val context = getApplication<Application>()
+        consecutiveFtpSkips++
+
+        // 1. Mostrar notificación en la barra de estado
+        NotificationHelper.notifyFtpSkipped(context, song.title)
+
+        // 2. Mostrar Toast inmediato en la interfaz
+        viewModelScope.launch(Dispatchers.Main) {
+            Toast.makeText(
+                context,
+                "Servidor FTP no disponible: saltando \"${song.title}\"",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
+        // 3. Saltar a la siguiente canción automáticamente
+        val maxSkips = (_currentFtpPlaylist.value.size).coerceAtLeast(1)
+        if (consecutiveFtpSkips < maxSkips && player.hasNextMediaItem()) {
+            player.seekToNextMediaItem()
+            player.prepare()
+            player.play()
+        } else {
+            consecutiveFtpSkips = 0
+            player.stop()
+            viewModelScope.launch(Dispatchers.Main) {
+                Toast.makeText(
+                    context,
+                    "No hay más canciones disponibles en la lista.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
     }
 
     fun setCurrentTab(tabIndex: Int) {
@@ -358,11 +418,25 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         _songToAddToPlaylist.value = song
     }
 
-    fun addSongToPlaylist(playlistId: String, songId: Long) {
+    fun addSongToPlaylist(playlistId: String, song: Song) {
         viewModelScope.launch {
-            playlistRepo.addSongToPlaylist(playlistId, songId)
+            playlistRepo.addSongToPlaylist(playlistId, song)
             loadPlaylists()
             _songToAddToPlaylist.value = null
+        }
+    }
+
+    fun addSongToPlaylist(playlistId: String, songId: Long) {
+        val song = _songToAddToPlaylist.value?.takeIf { it.id == songId }
+            ?: _songs.value.find { it.id == songId }
+        if (song != null) {
+            addSongToPlaylist(playlistId, song)
+        } else {
+            viewModelScope.launch {
+                playlistRepo.addSongToPlaylist(playlistId, songId)
+                loadPlaylists()
+                _songToAddToPlaylist.value = null
+            }
         }
     }
 
@@ -378,8 +452,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun getPlaylistSongs(playlist: Playlist): List<Song> {
+        val local = _songs.value
+        return playlist.songIds.mapNotNull { id ->
+            local.find { it.id == id } ?: playlist.ftpSongs.find { it.id == id }
+        }
+    }
+
     fun playPlaylist(playlist: Playlist) {
-        val playlistSongs = _songs.value.filter { playlist.songIds.contains(it.id) }
+        val playlistSongs = getPlaylistSongs(playlist)
         if (playlistSongs.isNotEmpty()) {
             playSongList(playlistSongs, 0)
         }
@@ -412,11 +493,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             _ftpErrorMessage.value = null
             val result = ftpManager.connect(config)
             result.onSuccess {
+                _currentFtpConfig.value = config
                 _isFtpConnected.value = true
                 _ftpCurrentPath.value = "/"
                 loadSavedFtpConfigs()
                 loadFtpFiles("/")
             }.onFailure {
+                _currentFtpConfig.value = null
                 _isFtpConnected.value = false
                 _ftpErrorMessage.value = it.localizedMessage ?: "Error al conectar al servidor FTP"
             }
@@ -425,10 +508,32 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun disconnectFtp() {
+        ftpManager.disconnect()
         _isFtpConnected.value = false
+        _currentFtpConfig.value = null
         _ftpItems.value = emptyList()
         _currentFtpPlaylist.value = emptyList()
         _ftpCurrentPath.value = "/"
+    }
+
+    fun addFtpSongToPlaylistDialog(item: FtpItem) {
+        val cfg = _currentFtpConfig.value
+        val host = cfg?.host ?: "Servidor FTP"
+        val streamUrl = ftpStreamBridge.getStreamUrl(item.path, item.size)
+        val song = Song(
+            id = (item.path + host).hashCode().toLong(),
+            title = item.name.substringBeforeLast("."),
+            artist = cfg?.name ?: "Servidor FTP",
+            album = _ftpCurrentPath.value,
+            duration = 0L,
+            contentUri = Uri.parse(streamUrl),
+            albumArtUri = null,
+            dataPath = item.path,
+            isFtp = true,
+            ftpPath = item.path,
+            ftpServerHost = host
+        )
+        _songToAddToPlaylist.value = song
     }
 
     fun loadFtpFiles(path: String) {
@@ -581,19 +686,26 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun playSong(selectedSong: Song) {
-        val currentList = _songs.value
-        val index = currentList.indexOfFirst { it.id == selectedSong.id }
-        if (index != -1) {
-            playSongList(currentList, index)
+        val currentList = if (selectedSong.isFtp) {
+            _selectedPlaylist.value?.let { getPlaylistSongs(it) } ?: listOf(selectedSong)
+        } else {
+            _songs.value
         }
+        val index = currentList.indexOfFirst { it.id == selectedSong.id }.coerceAtLeast(0)
+        playSongList(currentList, index)
     }
 
     private fun playSongList(list: List<Song>, startIndex: Int) {
         val controller = mediaController ?: return
         val mediaItems = list.map { song ->
+            val uri = if (song.isFtp) {
+                Uri.parse(ftpStreamBridge.getStreamUrl(song.ftpPath, 0L))
+            } else {
+                song.contentUri
+            }
             MediaItem.Builder()
                 .setMediaId(song.id.toString())
-                .setUri(song.contentUri)
+                .setUri(uri)
                 .setMediaMetadata(
                     MediaMetadata.Builder()
                         .setTitle(song.title)
@@ -605,12 +717,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 .build()
         }
 
+        _currentFtpPlaylist.value = list
         controller.setMediaItems(mediaItems, startIndex, 0L)
         controller.prepare()
         controller.play()
 
-        _currentSong.value = list[startIndex]
-        _duration.value = list[startIndex].duration
+        _currentSong.value = list.getOrNull(startIndex)
+        _duration.value = list.getOrNull(startIndex)?.duration ?: 0L
     }
 
     fun togglePlayPause() {

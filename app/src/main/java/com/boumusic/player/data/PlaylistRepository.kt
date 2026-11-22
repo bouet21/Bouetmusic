@@ -1,6 +1,7 @@
 package com.boumusic.player.data
 
 import android.content.Context
+import android.net.Uri
 import android.os.Environment
 import com.boumusic.player.model.Playlist
 import com.boumusic.player.model.Song
@@ -36,7 +37,39 @@ class PlaylistRepository(private val context: Context) {
                         songIds.add(songIdsArray.getLong(j))
                     }
                 }
-                list.add(Playlist(id, name, songIds, createdAt))
+
+                val ftpSongsArray = obj.optJSONArray("ftpSongs")
+                val ftpSongs = mutableListOf<Song>()
+                if (ftpSongsArray != null) {
+                    for (k in 0 until ftpSongsArray.length()) {
+                        val fObj = ftpSongsArray.getJSONObject(k)
+                        val sId = fObj.getLong("id")
+                        val sTitle = fObj.optString("title", "Pista FTP")
+                        val sArtist = fObj.optString("artist", "Servidor FTP")
+                        val sAlbum = fObj.optString("album", "")
+                        val sPath = fObj.optString("ftpPath", "")
+                        val sHost = fObj.optString("ftpServerHost", "")
+                        val sUri = fObj.optString("contentUri", "ftp://$sHost$sPath")
+
+                        ftpSongs.add(
+                            Song(
+                                id = sId,
+                                title = sTitle,
+                                artist = sArtist,
+                                album = sAlbum,
+                                duration = 0L,
+                                contentUri = Uri.parse(sUri),
+                                albumArtUri = null,
+                                dataPath = sPath,
+                                isFtp = true,
+                                ftpPath = sPath,
+                                ftpServerHost = sHost
+                            )
+                        )
+                    }
+                }
+
+                list.add(Playlist(id, name, songIds, ftpSongs, createdAt))
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -52,9 +85,27 @@ class PlaylistRepository(private val context: Context) {
                 obj.put("id", p.id)
                 obj.put("name", p.name)
                 obj.put("createdAt", p.createdAt)
+
                 val songIdsArray = JSONArray()
                 p.songIds.forEach { songIdsArray.put(it) }
                 obj.put("songIds", songIdsArray)
+
+                if (p.ftpSongs.isNotEmpty()) {
+                    val ftpArray = JSONArray()
+                    for (fs in p.ftpSongs) {
+                        val fObj = JSONObject()
+                        fObj.put("id", fs.id)
+                        fObj.put("title", fs.title)
+                        fObj.put("artist", fs.artist)
+                        fObj.put("album", fs.album)
+                        fObj.put("ftpPath", fs.ftpPath)
+                        fObj.put("ftpServerHost", fs.ftpServerHost)
+                        fObj.put("contentUri", fs.contentUri.toString())
+                        ftpArray.put(fObj)
+                    }
+                    obj.put("ftpSongs", ftpArray)
+                }
+
                 jsonArray.put(obj)
             }
             playlistFile.writeText(jsonArray.toString(2), Charsets.UTF_8)
@@ -68,7 +119,8 @@ class PlaylistRepository(private val context: Context) {
         val newPlaylist = Playlist(
             id = UUID.randomUUID().toString(),
             name = name.ifBlank { "Nueva lista" },
-            songIds = emptyList()
+            songIds = emptyList(),
+            ftpSongs = emptyList()
         )
         current.add(newPlaylist)
         savePlaylists(current)
@@ -78,6 +130,24 @@ class PlaylistRepository(private val context: Context) {
     suspend fun deletePlaylist(playlistId: String) {
         val current = getPlaylists().filter { it.id != playlistId }
         savePlaylists(current)
+    }
+
+    suspend fun addSongToPlaylist(playlistId: String, song: Song) {
+        val current = getPlaylists().toMutableList()
+        val idx = current.indexOfFirst { it.id == playlistId }
+        if (idx != -1) {
+            val target = current[idx]
+            if (!target.songIds.contains(song.id)) {
+                val updatedSongIds = target.songIds + song.id
+                val updatedFtpSongs = if (song.isFtp) {
+                    target.ftpSongs.filter { it.id != song.id } + song
+                } else {
+                    target.ftpSongs
+                }
+                current[idx] = target.copy(songIds = updatedSongIds, ftpSongs = updatedFtpSongs)
+                savePlaylists(current)
+            }
+        }
     }
 
     suspend fun addSongToPlaylist(playlistId: String, songId: Long) {
@@ -98,8 +168,9 @@ class PlaylistRepository(private val context: Context) {
         val idx = current.indexOfFirst { it.id == playlistId }
         if (idx != -1) {
             val target = current[idx]
-            val updatedList = target.songIds.filter { it != songId }
-            current[idx] = target.copy(songIds = updatedList)
+            val updatedSongIds = target.songIds.filter { it != songId }
+            val updatedFtpSongs = target.ftpSongs.filter { it.id != songId }
+            current[idx] = target.copy(songIds = updatedSongIds, ftpSongs = updatedFtpSongs)
             savePlaylists(current)
         }
     }
@@ -116,10 +187,14 @@ class PlaylistRepository(private val context: Context) {
         sb.append("#PLAYLIST:${playlist.name}\n")
 
         for (id in playlist.songIds) {
-            val s = allSongs.find { it.id == id } ?: continue
+            val s = allSongs.find { it.id == id } ?: playlist.ftpSongs.find { it.id == id } ?: continue
             val secs = (s.duration / 1000).coerceAtLeast(0)
             sb.append("#EXTINF:$secs,${s.artist} - ${s.title}\n")
-            sb.append("${s.dataPath}\n")
+            if (s.isFtp) {
+                sb.append("ftp://${s.ftpServerHost}${s.ftpPath}\n")
+            } else {
+                sb.append("${s.dataPath}\n")
+            }
         }
 
         file.writeText(sb.toString(), Charsets.UTF_8)
@@ -149,7 +224,8 @@ class PlaylistRepository(private val context: Context) {
             val newPlaylist = Playlist(
                 id = UUID.randomUUID().toString(),
                 name = playlistName,
-                songIds = matchedIds
+                songIds = matchedIds,
+                ftpSongs = emptyList()
             )
             val current = getPlaylists().toMutableList()
             current.add(newPlaylist)

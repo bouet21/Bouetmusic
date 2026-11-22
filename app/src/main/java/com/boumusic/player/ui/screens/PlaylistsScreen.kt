@@ -127,7 +127,7 @@ fun PlaylistsScreen(
         if (selectedPlaylist != null) {
             // Vista de detalle de la lista seleccionada
             val playlist = selectedPlaylist!!
-            val playlistSongs = allSongs.filter { playlist.songIds.contains(it.id) }
+            val playlistSongs = viewModel.getPlaylistSongs(playlist)
 
             Column(
                 modifier = Modifier

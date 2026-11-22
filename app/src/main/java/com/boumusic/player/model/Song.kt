@@ -10,10 +10,14 @@ data class Song(
     val duration: Long,
     val contentUri: Uri,
     val albumArtUri: Uri?,
-    val dataPath: String
+    val dataPath: String,
+    val isFtp: Boolean = false,
+    val ftpPath: String = "",
+    val ftpServerHost: String = ""
 ) {
     val formattedDuration: String
         get() {
+            if (duration <= 0) return if (isFtp) "--:--" else "00:00"
             val totalSeconds = (duration / 1000).coerceAtLeast(0)
             val minutes = totalSeconds / 60
             val remainingSeconds = totalSeconds % 60
