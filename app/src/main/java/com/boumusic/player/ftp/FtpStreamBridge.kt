@@ -4,7 +4,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.io.BufferedReader
 import java.io.InputStream
+import java.io.InputStreamReader
 import java.io.OutputStream
 import java.io.PrintWriter
 import java.net.ServerSocket
@@ -50,21 +52,24 @@ class FtpStreamBridge(
         job = null
     }
 
-    fun getStreamUrl(remotePath: String): String {
-        return "http://127.0.0.1:$port/stream?path=" + java.net.URLEncoder.encode(remotePath, "UTF-8")
+    fun getStreamUrl(remotePath: String, size: Long = 0L): String {
+        var url = "http://127.0.0.1:$port/stream?path=" + java.net.URLEncoder.encode(remotePath, "UTF-8")
+        if (size > 0) {
+            url += "&size=$size"
+        }
+        return url
     }
 
     private fun handleStreamingRequest(socket: Socket) {
-        socket.soTimeout = 60000
+        socket.soTimeout = 45000
         var ftpClient = ftpManager.openNewClient()
         var ftpStream: InputStream? = null
 
         try {
             val input = socket.getInputStream()
             val output = socket.getOutputStream()
+            val reader = BufferedReader(InputStreamReader(input, "UTF-8"))
 
-            // Leer línea de petición HTTP
-            val reader = java.io.BufferedReader(java.io.InputStreamReader(input, "UTF-8"))
             val requestLine = reader.readLine() ?: return
             val parts = requestLine.split(" ")
             if (parts.size < 2) return
@@ -75,18 +80,42 @@ class FtpStreamBridge(
                 return
             }
 
+            // Leer cabeceras HTTP (buscar Range para seeking / salto de audio)
+            val headers = mutableMapOf<String, String>()
+            var headerLine: String?
+            while (reader.readLine().also { headerLine = it } != null) {
+                if (headerLine!!.isEmpty()) break
+                val colon = headerLine!!.indexOf(":")
+                if (colon > 0) {
+                    headers[headerLine!!.substring(0, colon).trim().lowercase()] = headerLine!!.substring(colon + 1).trim()
+                }
+            }
+
             var remotePath = ""
+            var totalSize = 0L
             val query = rawPath.substringAfter("?", "")
             for (param in query.split("&")) {
                 if (param.startsWith("path=")) {
                     remotePath = URLDecoder.decode(param.substringAfter("path="), "UTF-8")
-                    break
+                } else if (param.startsWith("size=")) {
+                    totalSize = param.substringAfter("size=").toLongOrNull() ?: 0L
                 }
             }
 
             if (remotePath.isBlank() || ftpClient == null) {
                 sendNotFound(output)
                 return
+            }
+
+            // Soporte de Range Requests para saltar y avanzar en la canción
+            val rangeHeader = headers["range"]
+            var startByte = 0L
+            if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {
+                val byteRange = rangeHeader.substringAfter("bytes=").substringBefore("-")
+                startByte = byteRange.toLongOrNull() ?: 0L
+                if (startByte > 0) {
+                    ftpClient.restartOffset = startByte
+                }
             }
 
             ftpStream = ftpClient.retrieveFileStream(remotePath)
@@ -96,8 +125,33 @@ class FtpStreamBridge(
             }
 
             val writer = PrintWriter(output)
-            writer.println("HTTP/1.1 200 OK")
-            writer.println("Content-Type: audio/mpeg")
+            val isPartial = (startByte > 0)
+
+            if (isPartial) {
+                writer.println("HTTP/1.1 206 Partial Content")
+                if (totalSize > 0) {
+                    val endByte = totalSize - 1
+                    writer.println("Content-Range: bytes $startByte-$endByte/$totalSize")
+                    writer.println("Content-Length: ${totalSize - startByte}")
+                }
+            } else {
+                writer.println("HTTP/1.1 200 OK")
+                if (totalSize > 0) {
+                    writer.println("Content-Length: $totalSize")
+                }
+            }
+
+            val ext = remotePath.substringAfterLast('.', "").lowercase()
+            val contentType = when (ext) {
+                "mp3" -> "audio/mpeg"
+                "flac" -> "audio/flac"
+                "m4a", "aac" -> "audio/mp4"
+                "wav" -> "audio/wav"
+                "ogg", "opus" -> "audio/ogg"
+                else -> "audio/mpeg"
+            }
+
+            writer.println("Content-Type: $contentType")
             writer.println("Accept-Ranges: bytes")
             writer.println("Connection: close")
             writer.println()
@@ -111,7 +165,7 @@ class FtpStreamBridge(
             }
             output.flush()
         } catch (e: Exception) {
-            // Cliente ExoPlayer desconectado o pausado
+            // Cliente ExoPlayer desconectado (por salto de canción o pausa)
         } finally {
             try { ftpStream?.close() } catch (ignored: Exception) {}
             try { ftpClient?.disconnect() } catch (ignored: Exception) {}

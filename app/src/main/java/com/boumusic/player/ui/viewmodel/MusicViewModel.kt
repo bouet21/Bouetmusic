@@ -114,6 +114,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _ftpErrorMessage = MutableStateFlow<String?>(null)
     val ftpErrorMessage: StateFlow<String?> = _ftpErrorMessage.asStateFlow()
 
+    // Cola de canciones activas del FTP (para saltar siguiente/anterior fluidamente)
+    private val _currentFtpPlaylist = MutableStateFlow<List<Song>>(emptyList())
+
     // Temporizador de apagado (Sleep Timer)
     private var sleepTimerJob: Job? = null
     private val _sleepTimerMinutesLeft = MutableStateFlow<Int?>(null)
@@ -149,10 +152,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    // Ecualizador
-    private val _eqPresets = MutableStateFlow<List<String>>(emptyList())
-    val eqPresets: StateFlow<List<String>> = _eqPresets.asStateFlow()
 
     // Servidor Wi-Fi PC
     private var transferServer: TransferServer? = null
@@ -204,9 +203,13 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 val mediaId = mediaItem?.mediaId?.toLongOrNull()
-                _currentSong.value = _songs.value.find { it.id == mediaId }
+                // Buscar canción tanto en canciones locales como en la lista activa del FTP
+                val found = _songs.value.find { it.id == mediaId }
+                    ?: _currentFtpPlaylist.value.find { it.id == mediaId }
+
+                _currentSong.value = found
                 _currentPosition.value = 0L
-                _duration.value = _currentSong.value?.duration ?: player.duration.coerceAtLeast(0L)
+                _duration.value = found?.duration?.takeIf { it > 0 } ?: player.duration.coerceAtLeast(0L)
             }
 
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
@@ -417,6 +420,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun disconnectFtp() {
         _isFtpConnected.value = false
         _ftpItems.value = emptyList()
+        _currentFtpPlaylist.value = emptyList()
         _ftpCurrentPath.value = "/"
     }
 
@@ -449,36 +453,49 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         loadFtpFiles(_ftpCurrentPath.value)
     }
 
+    // REPRODUCCIÓN Y SALTO FLUIDO DE CANCIONES FTP
     fun playFtpSong(item: FtpItem) {
         val controller = mediaController ?: return
-        val streamUrl = ftpStreamBridge.getStreamUrl(item.path)
+        val audioItems = _ftpItems.value.filter { it.isAudio }
+        if (audioItems.isEmpty()) return
 
-        val mediaItem = MediaItem.Builder()
-            .setMediaId(item.path.hashCode().toLong().toString())
-            .setUri(Uri.parse(streamUrl))
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(item.name)
-                    .setArtist("Servidor FTP")
-                    .setAlbumTitle(_ftpCurrentPath.value)
-                    .build()
+        val index = audioItems.indexOfFirst { it.path == item.path }.coerceAtLeast(0)
+
+        // Crear lista completa de canciones FTP para que el skip (siguiente/anterior) funcione perfectamente
+        val ftpSongs = audioItems.map { audio ->
+            val streamUrl = ftpStreamBridge.getStreamUrl(audio.path, audio.size)
+            Song(
+                id = audio.path.hashCode().toLong(),
+                title = audio.name.substringBeforeLast("."),
+                artist = "Servidor FTP",
+                album = _ftpCurrentPath.value,
+                duration = 0L,
+                contentUri = Uri.parse(streamUrl),
+                albumArtUri = null,
+                dataPath = audio.path
             )
-            .build()
+        }
+        _currentFtpPlaylist.value = ftpSongs
 
-        controller.setMediaItem(mediaItem)
+        val mediaItems = ftpSongs.map { s ->
+            MediaItem.Builder()
+                .setMediaId(s.id.toString())
+                .setUri(s.contentUri)
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(s.title)
+                        .setArtist(s.artist)
+                        .setAlbumTitle(s.album)
+                        .build()
+                )
+                .build()
+        }
+
+        controller.setMediaItems(mediaItems, index, 0L)
         controller.prepare()
         controller.play()
 
-        _currentSong.value = Song(
-            id = item.path.hashCode().toLong(),
-            title = item.name,
-            artist = "Servidor FTP",
-            album = _ftpCurrentPath.value,
-            duration = 0L,
-            contentUri = Uri.parse(streamUrl),
-            albumArtUri = null,
-            dataPath = item.path
-        )
+        _currentSong.value = ftpSongs[index]
     }
 
     fun downloadFtpSong(item: FtpItem, onDone: () -> Unit) {
