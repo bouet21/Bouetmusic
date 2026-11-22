@@ -30,7 +30,11 @@ class MusicService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
 
-        activeAudioSessionId = exoPlayer.audioSessionId
+        try {
+            activeAudioSessionId = exoPlayer.audioSessionId
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         exoPlayer.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -38,6 +42,12 @@ class MusicService : MediaSessionService() {
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                try {
+                    val id = exoPlayer.audioSessionId
+                    if (id > 0) activeAudioSessionId = id
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
                 notifyWidgetUpdate()
             }
         })
@@ -86,10 +96,15 @@ class MusicService : MediaSessionService() {
     }
 
     private fun notifyWidgetUpdate() {
-        val title = exoPlayer.currentMediaItem?.mediaMetadata?.title?.toString() ?: "Boumusic"
-        val artist = exoPlayer.currentMediaItem?.mediaMetadata?.artist?.toString() ?: "Toca para reproducir"
-        val isPlaying = exoPlayer.isPlaying
-        MusicWidgetProvider.updateAllWidgets(this, title, artist, isPlaying)
+        if (!::exoPlayer.isInitialized) return
+        try {
+            val title = exoPlayer.currentMediaItem?.mediaMetadata?.title?.toString() ?: "Boumusic"
+            val artist = exoPlayer.currentMediaItem?.mediaMetadata?.artist?.toString() ?: "Toca para reproducir"
+            val isPlaying = exoPlayer.isPlaying
+            MusicWidgetProvider.updateAllWidgets(this, title, artist, isPlaying)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {

@@ -40,21 +40,25 @@ class MusicWidgetProvider : AppWidgetProvider() {
         const val EXTRA_IS_PLAYING = "extra_is_playing"
 
         fun updateAllWidgets(context: Context, title: String, artist: String, isPlaying: Boolean) {
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val thisWidget = ComponentName(context, MusicWidgetProvider::class.java)
-            val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
+            try {
+                val appWidgetManager = AppWidgetManager.getInstance(context) ?: return
+                val thisWidget = ComponentName(context, MusicWidgetProvider::class.java)
+                val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget) ?: return
 
-            for (appWidgetId in allWidgetIds) {
-                val views = RemoteViews(context.packageName, R.layout.widget_music).apply {
-                    setTextViewText(R.id.widget_song_title, title)
-                    setTextViewText(R.id.widget_song_artist, artist)
-                    setImageViewResource(
-                        R.id.widget_btn_play_pause,
-                        if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
-                    )
-                    setupIntents(context, this)
+                for (appWidgetId in allWidgetIds) {
+                    val views = RemoteViews(context.packageName, R.layout.widget_music).apply {
+                        setTextViewText(R.id.widget_song_title, title)
+                        setTextViewText(R.id.widget_song_artist, artist)
+                        setImageViewResource(
+                            R.id.widget_btn_play_pause,
+                            if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+                        )
+                        setupIntents(context, this)
+                    }
+                    appWidgetManager.updateAppWidget(appWidgetId, views)
                 }
-                appWidgetManager.updateAppWidget(appWidgetId, views)
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
 

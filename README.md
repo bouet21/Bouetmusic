@@ -14,12 +14,37 @@
 
 Descarga siempre la versión más reciente en formato APK lista para instalar en tu móvil:
 
-👉 **[Descargar Boumusic v1.8.0 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.8.0/Boumusic.apk)**  
+👉 **[Descargar Boumusic v1.8.1 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.8.1/Boumusic.apk)**  
 *(o visita todas las versiones en la sección de [Releases de GitHub](https://github.com/bouet21/Bouetmusic/releases))*
 
 ---
 
-## ✨ Novedades Principales de la v1.8.0
+## ✨ Novedades Principales de la v1.8.1
+
+### 🛡️ 1. Estabilidad y Resiliencia Total en Dispositivos OEM (Solución a "se ralla")
+* **Ecualizador y Efectos a prueba de bombas**:
+  * En dispositivos donde los fabricantes (Xiaomi MIUI/HyperOS, Samsung Galaxy serie A, etc.) restringen o fallan al inicializar los motores de audio por hardware (`Equalizer` o `BassBoost` arrojando error -3 o -4), Boumusic ahora intercepta de forma segura cualquier excepción (`SecurityException`, `UnsupportedOperationException`, `IllegalArgumentException` por tablas de presets defectuosas).
+  * En caso de incompatibilidad de hardware del dispositivo, la app recurre automáticamente a perfiles y bandas virtuales seguros sin cerrarse forzosamente ni congelarse jamás.
+* **Sesión de audio y widgets protegidos**:
+  * Manejo seguro y dinámico de `audioSessionId` en `MusicService` al cambiar de pista.
+  * Declaración formal del permiso `MODIFY_AUDIO_SETTINGS` en el AndroidManifest.
+  * Aislamiento en `MusicWidgetProvider` para evitar caídas del servicio ante fallos del sistema (`DeadSystemException`, `RemoteException`).
+
+---
+
+### 🎨 2. Interfaz Limpia, Ergonómica y Responsiva (Solución a botones desbordados)
+* **Reproductor a Pantalla Completa Rediseñado**:
+  * Cabecera despejada y minimalista con botón de minimizar, título limpio y menú contextual ⋮.
+  * **Barra de acciones ergonómica**: Acciones secundarias (*Ecualizador*, *Temporizador*, *Compartir*, *Cola*) organizadas en una fila propia de botones píldora debajo de los controles principales.
+  * **Carátula responsiva para pantallas compactas**: La portada del álbum se ajusta dinámicamente al alto de pantalla disponible (`weight(1f, fill = false)`) y el contenedor cuenta con desplazamiento vertical adaptativo, garantizando que en teléfonos con pantallas 16:9, resolución 720p o fuentes grandes ningún botón quede cortado u oculto.
+* **Barra Superior Equilibrada**:
+  * Iconos optimizados a 36dp con espaciados limpios para que no se desborden ni solapen en pantallas pequeñas.
+* **Navegador y Búsqueda FTP Estilizados**:
+  * Filas de resultados limpias con botón directo de descarga y menú desplegable contextual (⋮) para añadir a listas de reproducción o ir a la carpeta contenedora.
+
+---
+
+## ✨ Novedades de la v1.8.0
 
 ### 📊 1. Historial de Reproducciones y Estadísticas Trimestrales (¡Nuevo v1.8.0!)
 * **Historial completo en la biblioteca**:

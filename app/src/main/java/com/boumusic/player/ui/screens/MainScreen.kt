@@ -484,7 +484,9 @@ fun MainScreen(
                                     fontWeight = FontWeight.ExtraBold,
                                     fontSize = 24.sp
                                 ),
-                                color = TextPrimary
+                                color = TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
 
                             if (sleepTimerMinutesLeft != null) {
@@ -504,43 +506,35 @@ fun MainScreen(
                             IconButton(
                                 onClick = { viewModel.setTransferScreenOpen(true) },
                                 modifier = Modifier
+                                    .size(36.dp)
                                     .clip(CircleShape)
                                     .background(DarkSurfaceVariant)
                             ) {
-                                Icon(Icons.Default.Wifi, contentDescription = "Transferir desde PC", tint = NeonCyan, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.Wifi, contentDescription = "Transferir desde PC", tint = NeonCyan, modifier = Modifier.size(18.dp))
                             }
 
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            IconButton(
-                                onClick = { viewModel.setShowStatsDialog(true) },
-                                modifier = Modifier
-                                    .clip(CircleShape)
-                                    .background(DarkSurfaceVariant)
-                            ) {
-                                Icon(Icons.Default.Leaderboard, contentDescription = "Estadísticas", tint = NeonCyan, modifier = Modifier.size(20.dp))
-                            }
-
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
 
                             IconButton(
                                 onClick = { viewModel.loadSongs() },
                                 modifier = Modifier
+                                    .size(36.dp)
                                     .clip(CircleShape)
                                     .background(DarkSurfaceVariant)
                             ) {
-                                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh), tint = TextPrimary, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh), tint = TextPrimary, modifier = Modifier.size(18.dp))
                             }
 
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
 
                             IconButton(
                                 onClick = { showSettingsDialog = true },
                                 modifier = Modifier
+                                    .size(36.dp)
                                     .clip(CircleShape)
                                     .background(DarkSurfaceVariant)
                             ) {
-                                Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = TextPrimary, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = TextPrimary, modifier = Modifier.size(18.dp))
                             }
                         }
 

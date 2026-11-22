@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
@@ -39,6 +40,8 @@ import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -591,6 +594,8 @@ private fun FtpSearchResultRow(
     onDownload: () -> Unit,
     onGoToFolder: () -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -635,17 +640,36 @@ private fun FtpSearchResultRow(
             )
         }
 
-        IconButton(onClick = onPlay, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir por streaming", tint = NeonCyan)
+        IconButton(onClick = onDownload, modifier = Modifier.size(34.dp)) {
+            Icon(Icons.Default.Download, contentDescription = "Descargar a local", tint = TextPrimary, modifier = Modifier.size(18.dp))
         }
-        IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Default.PlaylistAdd, contentDescription = "Añadir a lista", tint = NeonCyan)
-        }
-        IconButton(onClick = onDownload, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Default.Download, contentDescription = "Descargar a local", tint = TextPrimary)
-        }
-        IconButton(onClick = onGoToFolder, modifier = Modifier.size(36.dp)) {
-            Icon(Icons.Default.FolderOpen, contentDescription = "Ir a carpeta", tint = ElectricPurple)
+
+        Box {
+            IconButton(onClick = { showMenu = true }, modifier = Modifier.size(34.dp)) {
+                Icon(Icons.Default.MoreVert, contentDescription = "Opciones", tint = TextSecondary, modifier = Modifier.size(18.dp))
+            }
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+                modifier = Modifier.background(DarkSurface)
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Añadir a lista", color = TextPrimary) },
+                    leadingIcon = { Icon(Icons.Default.PlaylistAdd, contentDescription = null, tint = NeonCyan) },
+                    onClick = {
+                        showMenu = false
+                        onAddToPlaylist()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Ir a carpeta", color = TextPrimary) },
+                    leadingIcon = { Icon(Icons.Default.FolderOpen, contentDescription = null, tint = ElectricPurple) },
+                    onClick = {
+                        showMenu = false
+                        onGoToFolder()
+                    }
+                )
+            }
         }
     }
 }
@@ -702,14 +726,11 @@ private fun FtpItemRow(
         }
 
         if (!item.isDirectory) {
-            IconButton(onClick = onPlay, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir por streaming", tint = NeonCyan)
+            IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(34.dp)) {
+                Icon(Icons.Default.PlaylistAdd, contentDescription = "Añadir a lista", tint = NeonCyan, modifier = Modifier.size(18.dp))
             }
-            IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.PlaylistAdd, contentDescription = "Añadir a lista", tint = NeonCyan)
-            }
-            IconButton(onClick = onDownload, modifier = Modifier.size(36.dp)) {
-                Icon(Icons.Default.Download, contentDescription = "Descargar a local", tint = TextPrimary)
+            IconButton(onClick = onDownload, modifier = Modifier.size(34.dp)) {
+                Icon(Icons.Default.Download, contentDescription = "Descargar a local", tint = TextPrimary, modifier = Modifier.size(18.dp))
             }
         }
     }
