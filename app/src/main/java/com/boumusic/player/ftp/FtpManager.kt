@@ -50,7 +50,8 @@ class FtpManager(private val context: Context? = null) {
                         host = o.optString("host", ""),
                         port = o.optInt("port", 21),
                         username = o.optString("username", "anonymous"),
-                        password = o.optString("password", "")
+                        password = o.optString("password", ""),
+                        isFtps = o.optBoolean("isFtps", false)
                     )
                 )
             }
@@ -75,6 +76,7 @@ class FtpManager(private val context: Context? = null) {
                 o.put("port", c.port)
                 o.put("username", c.username)
                 o.put("password", c.password)
+                o.put("isFtps", c.isFtps)
                 arr.put(o)
             }
             file.writeText(arr.toString(2), Charsets.UTF_8)
@@ -96,6 +98,7 @@ class FtpManager(private val context: Context? = null) {
                 o.put("port", c.port)
                 o.put("username", c.username)
                 o.put("password", c.password)
+                o.put("isFtps", c.isFtps)
                 arr.put(o)
             }
             file.writeText(arr.toString(2), Charsets.UTF_8)
@@ -104,8 +107,30 @@ class FtpManager(private val context: Context? = null) {
         }
     }
 
+    private fun createFtpClient(config: FtpConfig): FTPClient {
+        return if (config.isFtps) {
+            org.apache.commons.net.ftp.FTPSClient("TLS").apply {
+                needClientAuth = false
+                wantClientAuth = false
+            }
+        } else {
+            FTPClient()
+        }
+    }
+
+    private fun configurePostLogin(client: FTPClient) {
+        if (client is org.apache.commons.net.ftp.FTPSClient) {
+            try {
+                client.execPBSZ(0)
+                client.execPROT("P")
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     suspend fun connect(config: FtpConfig): Result<Boolean> = withContext(Dispatchers.IO) {
-        val client = FTPClient()
+        val client = createFtpClient(config)
         try {
             client.connectTimeout = 10000
             client.defaultTimeout = 15000
@@ -125,6 +150,7 @@ class FtpManager(private val context: Context? = null) {
                 return@withContext Result.failure(Exception("Autenticación fallida: usuario o contraseña incorrectos"))
             }
 
+            configurePostLogin(client)
             client.enterLocalPassiveMode()
             client.setFileType(FTP.BINARY_FILE_TYPE)
             activeConfig = config
@@ -138,12 +164,13 @@ class FtpManager(private val context: Context? = null) {
 
     suspend fun listFiles(path: String): Result<List<FtpItem>> = withContext(Dispatchers.IO) {
         val config = activeConfig ?: return@withContext Result.failure(Exception("No hay servidor FTP configurado"))
-        val client = FTPClient()
+        val client = createFtpClient(config)
         try {
             client.connectTimeout = 10000
             client.defaultTimeout = 15000
             client.connect(config.host, config.port)
             client.login(config.username.ifBlank { "anonymous" }, config.password)
+            configurePostLogin(client)
             client.enterLocalPassiveMode()
             client.setFileType(FTP.BINARY_FILE_TYPE)
 
@@ -180,12 +207,13 @@ class FtpManager(private val context: Context? = null) {
         onFoundBatch: ((List<FtpItem>) -> Unit)? = null
     ): Result<List<FtpItem>> = withContext(Dispatchers.IO) {
         val config = activeConfig ?: return@withContext Result.failure(Exception("No hay servidor FTP configurado"))
-        val client = FTPClient()
+        val client = createFtpClient(config)
         try {
             client.connectTimeout = 10000
             client.defaultTimeout = 15000
             client.connect(config.host, config.port)
             client.login(config.username.ifBlank { "anonymous" }, config.password)
+            configurePostLogin(client)
             client.enterLocalPassiveMode()
             client.setFileType(FTP.BINARY_FILE_TYPE)
 
@@ -248,11 +276,12 @@ class FtpManager(private val context: Context? = null) {
     fun openNewClient(): FTPClient? {
         val config = activeConfig ?: return null
         return try {
-            val client = FTPClient()
+            val client = createFtpClient(config)
             client.connectTimeout = 10000
             client.defaultTimeout = 30000
             client.connect(config.host, config.port)
             client.login(config.username.ifBlank { "anonymous" }, config.password)
+            configurePostLogin(client)
             client.enterLocalPassiveMode()
             client.setFileType(FTP.BINARY_FILE_TYPE)
             client
@@ -264,10 +293,11 @@ class FtpManager(private val context: Context? = null) {
 
     suspend fun downloadSong(remotePath: String, destFile: File, onProgress: (Int) -> Unit): Result<Boolean> = withContext(Dispatchers.IO) {
         val config = activeConfig ?: return@withContext Result.failure(Exception("No conectado a FTP"))
-        val client = FTPClient()
+        val client = createFtpClient(config)
         try {
             client.connect(config.host, config.port)
             client.login(config.username.ifBlank { "anonymous" }, config.password)
+            configurePostLogin(client)
             client.enterLocalPassiveMode()
             client.setFileType(FTP.BINARY_FILE_TYPE)
 

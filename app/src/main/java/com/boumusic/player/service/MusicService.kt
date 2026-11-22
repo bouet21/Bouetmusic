@@ -4,10 +4,13 @@ import android.app.PendingIntent
 import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.boumusic.player.MainActivity
+import com.boumusic.player.widget.MusicWidgetProvider
 
 class MusicService : MediaSessionService() {
 
@@ -23,9 +26,21 @@ class MusicService : MediaSessionService() {
             .build()
 
         exoPlayer = ExoPlayer.Builder(this)
-            .setAudioAttributes(audioAttributes, true) // Pausa automáticamente si entra una llamada o se desconectan auriculares
+            .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
             .build()
+
+        activeAudioSessionId = exoPlayer.audioSessionId
+
+        exoPlayer.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                notifyWidgetUpdate()
+            }
+
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                notifyWidgetUpdate()
+            }
+        })
 
         val sessionActivityIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -43,6 +58,40 @@ class MusicService : MediaSessionService() {
             .build()
     }
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_PLAY_PAUSE -> {
+                if (::exoPlayer.isInitialized) {
+                    if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+                }
+            }
+            ACTION_NEXT -> {
+                if (::exoPlayer.isInitialized && exoPlayer.hasNextMediaItem()) {
+                    exoPlayer.seekToNextMediaItem()
+                }
+            }
+            ACTION_PREVIOUS -> {
+                if (::exoPlayer.isInitialized) {
+                    if (exoPlayer.currentPosition > 3000) {
+                        exoPlayer.seekTo(0)
+                    } else if (exoPlayer.hasPreviousMediaItem()) {
+                        exoPlayer.seekToPreviousMediaItem()
+                    } else {
+                        exoPlayer.seekTo(0)
+                    }
+                }
+            }
+        }
+        return super.onStartCommand(intent, flags, startId)
+    }
+
+    private fun notifyWidgetUpdate() {
+        val title = exoPlayer.currentMediaItem?.mediaMetadata?.title?.toString() ?: "Boumusic"
+        val artist = exoPlayer.currentMediaItem?.mediaMetadata?.artist?.toString() ?: "Toca para reproducir"
+        val isPlaying = exoPlayer.isPlaying
+        MusicWidgetProvider.updateAllWidgets(this, title, artist, isPlaying)
+    }
+
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? {
         return mediaSession
     }
@@ -54,5 +103,12 @@ class MusicService : MediaSessionService() {
             mediaSession = null
         }
         super.onDestroy()
+    }
+
+    companion object {
+        var activeAudioSessionId: Int = 0
+        const val ACTION_PLAY_PAUSE = "com.boumusic.player.ACTION_PLAY_PAUSE"
+        const val ACTION_NEXT = "com.boumusic.player.ACTION_NEXT"
+        const val ACTION_PREVIOUS = "com.boumusic.player.ACTION_PREVIOUS"
     }
 }

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Wifi
@@ -79,8 +81,11 @@ import androidx.compose.ui.unit.sp
 import com.boumusic.player.R
 import com.boumusic.player.model.ShareType
 import com.boumusic.player.model.Song
+import com.boumusic.player.ui.components.EqualizerDialog
 import com.boumusic.player.ui.components.MiniPlayer
 import com.boumusic.player.ui.components.NowPlayingScreen
+import com.boumusic.player.ui.components.QueueBottomSheet
+import com.boumusic.player.ui.components.SettingsDialog
 import com.boumusic.player.ui.components.ShareOptionsDialog
 import com.boumusic.player.ui.components.ShareQrDialog
 import com.boumusic.player.ui.components.SongListItem
@@ -105,6 +110,8 @@ fun MainScreen(
     val songsSubTab by viewModel.songsSubTab.collectAsState()
     val selectedArtist by viewModel.selectedArtist.collectAsState()
     val selectedAlbum by viewModel.selectedAlbum.collectAsState()
+    val selectedGenre by viewModel.selectedGenre.collectAsState()
+    val playbackQueue by viewModel.playbackQueue.collectAsState()
 
     val songs by viewModel.filteredSongs.collectAsState()
     val allSongs by viewModel.songs.collectAsState()
@@ -128,6 +135,37 @@ fun MainScreen(
     var songForOptionsMenu by remember { mutableStateOf<Song?>(null) }
     var showCreatePlaylistInDialog by remember { mutableStateOf(false) }
     var newPlaylistNameInDialog by remember { mutableStateOf("") }
+    var showQueueSheet by remember { mutableStateOf(false) }
+    var showEqualizerDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+
+    // Diálogos de Ajustes, Ecualizador y Cola
+    if (showSettingsDialog) {
+        SettingsDialog(
+            viewModel = viewModel,
+            onOpenEqualizer = { showEqualizerDialog = true },
+            onDismiss = { showSettingsDialog = false }
+        )
+    }
+
+    if (showEqualizerDialog) {
+        EqualizerDialog(
+            equalizerManager = viewModel.equalizerManager,
+            onDismiss = { showEqualizerDialog = false }
+        )
+    }
+
+    if (showQueueSheet) {
+        QueueBottomSheet(
+            queue = playbackQueue,
+            currentSong = currentSong,
+            onPlaySongAt = { viewModel.playQueueSongAt(it) },
+            onRemoveFromQueue = { viewModel.removeSongFromQueue(it) },
+            onMoveQueueItem = { from, to -> viewModel.moveQueueItem(from, to) },
+            onClearQueue = { viewModel.clearQueue() },
+            onDismiss = { showQueueSheet = false }
+        )
+    }
 
     // Diálogo de opciones para compartir (Bluetooth / Quick Share vs Código QR)
     if (shareOptionsTarget != null) {
@@ -467,16 +505,27 @@ fun MainScreen(
                             ) {
                                 Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh), tint = TextPrimary, modifier = Modifier.size(20.dp))
                             }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            IconButton(
+                                onClick = { showSettingsDialog = true },
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(DarkSurfaceVariant)
+                            ) {
+                                Icon(Icons.Default.Settings, contentDescription = "Ajustes", tint = TextPrimary, modifier = Modifier.size(20.dp))
+                            }
                         }
 
-                        // Selector de sub-pestañas: [Todas | Artistas | Álbumes]
+                        // Selector de sub-pestañas: [Todas | Artistas | Álbumes | Géneros]
                         Spacer(modifier = Modifier.height(12.dp))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             FilterChip(
-                                selected = songsSubTab == 0 && selectedArtist == null && selectedAlbum == null,
+                                selected = songsSubTab == 0 && selectedArtist == null && selectedAlbum == null && selectedGenre == null,
                                 onClick = { viewModel.setSongsSubTab(0) },
                                 label = { Text("Todas (${allSongs.size})") },
                                 colors = chipColors()
@@ -491,6 +540,12 @@ fun MainScreen(
                                 selected = songsSubTab == 2 || selectedAlbum != null,
                                 onClick = { viewModel.setSongsSubTab(2) },
                                 label = { Text(selectedAlbum ?: "Álbumes") },
+                                colors = chipColors()
+                            )
+                            FilterChip(
+                                selected = songsSubTab == 3 || selectedGenre != null,
+                                onClick = { viewModel.setSongsSubTab(3) },
+                                label = { Text(selectedGenre ?: "Géneros") },
                                 colors = chipColors()
                             )
                         }
@@ -570,6 +625,32 @@ fun MainScreen(
                                     }
                                 }
                             }
+                            songsSubTab == 3 && selectedGenre == null -> {
+                                // Vista de agrupación por GÉNEROS
+                                val genres = allSongs.groupBy { it.genre.ifBlank { "Varios" } }
+                                LazyColumn(modifier = Modifier.weight(1f)) {
+                                    items(genres.keys.toList().sorted()) { genreName ->
+                                        val count = genres[genreName]?.size ?: 0
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(DarkSurface)
+                                                .clickable { viewModel.filterByGenre(genreName) }
+                                                .padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.Category, contentDescription = null, tint = ElectricPurple)
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(genreName, color = TextPrimary, fontWeight = FontWeight.Bold)
+                                                Text("$count canciones", color = TextSecondary, fontSize = 12.sp)
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                    }
+                                }
+                            }
                             songsSubTab == 2 && selectedAlbum == null -> {
                                 // Vista de agrupación por ÁLBUMES
                                 val albums = allSongs.groupBy { it.album }
@@ -590,6 +671,32 @@ fun MainScreen(
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(albumName, color = TextPrimary, fontWeight = FontWeight.Bold)
                                                 Text("${albumSongs.firstOrNull()?.artist ?: ""} • ${albumSongs.size} pistas", color = TextSecondary, fontSize = 12.sp)
+                                            }
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                    }
+                                }
+                            }
+                            songsSubTab == 3 && selectedGenre == null -> {
+                                // Vista de agrupación por GÉNEROS
+                                val genres = allSongs.groupBy { it.genre.ifBlank { "Varios" } }
+                                LazyColumn(modifier = Modifier.weight(1f)) {
+                                    items(genres.keys.toList().sorted()) { genreName ->
+                                        val count = genres[genreName]?.size ?: 0
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(DarkSurface)
+                                                .clickable { viewModel.filterByGenre(genreName) }
+                                                .padding(14.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(Icons.Default.Category, contentDescription = null, tint = ElectricPurple)
+                                            Spacer(modifier = Modifier.width(12.dp))
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(genreName, color = TextPrimary, fontWeight = FontWeight.Bold)
+                                                Text("$count canciones", color = TextSecondary, fontSize = 12.sp)
                                             }
                                         }
                                         Spacer(modifier = Modifier.height(6.dp))
@@ -664,7 +771,9 @@ fun MainScreen(
                         onToggleShuffle = { viewModel.toggleShuffle() },
                         onCycleRepeat = { viewModel.cycleRepeatMode() },
                         onSetSleepTimer = { viewModel.setSleepTimer(it) },
-                        onShareClick = { viewModel.openShareOptions(it) }
+                        onShareClick = { viewModel.openShareOptions(it) },
+                        onOpenEqualizer = { showEqualizerDialog = true },
+                        onOpenQueue = { showQueueSheet = true }
                     )
                 }
             }

@@ -6,108 +6,97 @@
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-brightgreen)](https://developer.android.com/jetpack/compose)
 [![No Ads](https://img.shields.io/badge/Publicidad-0%25%20(Sin%20Anuncios)-success)](#)
 
-**Boumusic** es un reproductor de música nativo para Android diseñado desde cero para disfrutar de tu música local y remota con la máxima calidad, interfaz moderna con tema oscuro (Neon Cyan y Electric Purple), cero anuncios y herramientas potentes como **buscador de canciones en FTP**, **compartir por Bluetooth / Quick Share**, **transferencia por código QR** y **exploración/streaming desde servidores FTP**.
+**Boumusic** es un reproductor de música nativo para Android diseñado desde cero para disfrutar de tu música local y remota con la máxima fidelidad, interfaz futurista con tema oscuro neón (Neon Cyan y Electric Purple), cero anuncios y herramientas avanzadas: **ecualizador de 5 bandas con Bass Boost**, **cola de reproducción editable**, **widget de pantalla de inicio**, **navegación por géneros**, **conexión segura FTPS (TLS/SSL)**, **buscador profundo en FTP**, **transferencia Wi-Fi con PIN** y **compartición por Bluetooth / Quick Share y Código QR**.
 
 ---
 
 ## 📲 Descarga Directa
 
-Descarga siempre la versión más reciente en formato APK lista para instalar:
+Descarga siempre la versión más reciente en formato APK lista para instalar en tu móvil:
 
-👉 **[Descargar Boumusic v1.6.0 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.6.0/Boumusic.apk)**  
+👉 **[Descargar Boumusic v1.7.0 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.7.0/Boumusic.apk)**  
 *(o visita todas las versiones en la sección de [Releases de GitHub](https://github.com/bouet21/Bouetmusic/releases))*
 
 ---
 
-## ✨ Características Principales
+## ✨ Novedades y Características Principales
 
-### 🔍 1. Buscador Inteligente de Canciones en Servidor FTP (¡Novedad v1.6.0!)
-* **Filtro instantáneo en la carpeta actual**: Escribe en la barra de búsqueda y filtra al instante las canciones y carpetas del directorio activo sin esperas.
-* **Búsqueda profunda en todo el servidor FTP**:
-  * Encuentra cualquier canción en tu NAS, PC o servidor doméstico sin importar cuántos niveles de subcarpetas (Artista / Álbum / Año) tenga tu biblioteca.
-  * Algoritmo de rastreo en segundo plano multihilo que encuentra y muestra resultados en vivo conforme los descubre.
-  * Opción de detener la búsqueda en cualquier momento con un solo toque.
-* **Acciones directas en cada resultado**:
-  * ▶️ **Streaming instantáneo**: Escucha la canción remota directamente sin descargarla.
-  * 📑 **Cola automática**: Al pulsar una canción encontrada, todos los resultados de la búsqueda forman la cola de reproducción para saltar entre pistas (⏭️ / ⏮️).
-  * ➕ **Añadir a listas de reproducción**: Incorpora temas encontrados en el FTP a tus playlists locales.
-  * ⬇️ **Descarga a local**: Guarda la canción en `Music/Boumusic/` para escucharla sin conexión.
-  * 📂 **Ir a carpeta**: Abre directamente el directorio del servidor FTP donde está guardada la canción.
+### 🎚️ 1. Ecualizador de 5 Bandas y Refuerzo de Graves (Bass Boost) (¡Nuevo v1.7.0!)
+* **Control acústico paramétrico**: Ajuste preciso en 5 bandas de frecuencias (60 Hz, 230 Hz, 910 Hz, 3.6 kHz, 14 kHz) con rango dinámico de -15 dB a +15 dB.
+* **Presets de ecualización**: Alterna con un toque entre estilos predefinidos: *Normal, Rock, Pop, Clásica, Jazz, Electrónica y Bass Boost*.
+* **Potenciador de graves (Bass Boost)**: Deslizador con control fino de 0 a 1000 para graves profundos y contundentes.
+* **Interruptor activable**: Habilita o desactiva los efectos de audio al instante desde el reproductor o desde la pantalla de Ajustes.
 
 ---
 
-### 🔵 2. Compartir Música: Bluetooth / Quick Share o Código QR
-* **Elige cómo compartir según la ocasión**:
-  * Al pulsar el botón de compartir en cualquier canción o lista de reproducción, Boumusic te ofrece elegir el método que mejor se adapte a tu situación.
-* **🔵 Bluetooth / Quick Share (Recomendado fuera de casa)**:
-  * **Móvil a móvil directo**: No necesitas estar en la misma red Wi-Fi, ni tener conexión a internet, ni gastar datos móviles.
-  * **Envío individual o listas enteras**: Transfiere una canción específica o todas las canciones locales de una lista de reproducción en un solo envío por lotes.
-  * Integración con `FileProvider` nativo para máxima velocidad y compatibilidad en Android 7.0 hasta Android 14+.
-* **📷 Código QR (Transmisión web y descarga directa)**:
-  * Tu amigo escanea el código QR con la cámara de cualquier smartphone (Android o iPhone).
-  * **Sin instalar apps**: Se abre una página web elegante en su navegador donde puede escuchar la canción en streaming antes de guardarla.
-  * **Descarga de listas en ZIP**: Genera un archivo `.zip` en memoria para descargar la lista completa con un solo toque.
-* **🔄 Cambio en un toque**:
-  * Si abres el diálogo de Código QR pero tu amigo no está en tu misma red Wi-Fi o Hotspot, puedes pulsar el botón *"O cambiar a Bluetooth / Quick Share"* para enviárselo directamente sin empezar de nuevo.
+### 📑 2. Cola de Reproducción Dinámica y Editable (¡Nuevo v1.7.0!)
+* **Panel de cola (Queue Sheet)**: Accesible con un toque desde la barra superior de la pantalla de reproducción.
+* **Reorganización en vivo**: Mueve canciones arriba o abajo en la lista para elegir el orden exacto de reproducción.
+* **Saltar y descartar**: Toca cualquier canción de la cola para saltar inmediatamente a ella, o elimina canciones individuales sin alterar el resto de la lista.
+* **Vaciar cola**: Botón rápido para limpiar la lista activa cuando quieras empezar de cero.
+* **Reproducir a continuación**: Prioriza cualquier tema desde el menú contextual (⋮) para colocarlo inmediatamente después del tema actual.
 
 ---
 
-### 🌐 3. Canciones FTP en Listas de Reproducción y Salto Inteligente
-* **Añade pistas remotas a tus listas**: Pulsa el botón `+` en cualquier pista del explorador o buscador FTP para agregarla a tus listas de reproducción favoritas.
-* **Distinción visual clara**: Las pistas de origen FTP muestran una etiqueta distintiva `FTP` y la procedencia del servidor.
-* **Salto automático sin cortes**: Si escuchas una lista y no estás conectado al servidor FTP (o estás fuera de tu red Wi-Fi), Boumusic detecta la falta de conexión, salta la pista remota al instante y continúa reproduciendo la siguiente canción local o disponible.
-* **Aviso y notificación del sistema**: Te envía una notificación a la barra de estado y un aviso visual indicando exactamente qué canción se ha saltado y la causa.
+### 📱 3. Widget Nativo para la Pantalla de Inicio (¡Nuevo v1.7.0!)
+* **AppWidget 4x1 elegante**: Diseño redondeado con la estética Cyber Neon de Boumusic para tu pantalla de inicio o bloqueo.
+* **Información en tiempo real**: Muestra el título de la canción actual, artista y estado de reproducción sincronizados al instante con el servicio en segundo plano.
+* **Controles rápidos sin abrir la app**: Botones interactivos de pista anterior (⏮️), reproducir/pausar (⏯️) y pista siguiente (⏭️).
+* **Acceso directo**: Toca la información de la pista para abrir la aplicación directamente en la vista principal.
 
 ---
 
-### 📡 4. Explorador y Streaming FTP Avanzado
-* **Conexión a servidores FTP**: Conéctate a tu NAS, PC, servidor doméstico o router mediante Host, Puerto, Usuario y Contraseña.
-* **Servidores favoritos**: Guarda tus configuraciones frecuentes para reconectarte en un toque.
-* **Streaming remoto fluido con soporte HTTP `Range`**: Reproduce directamente desde el servidor FTP sin esperar a que se descargue el archivo completo, con pre-buffer para evitar pausas.
-* **Cola de reproducción completa en FTP**: Al seleccionar una canción en una carpeta FTP, se encolan automáticamente todas las pistas del directorio, permitiendo saltar canciones (⏭️ / ⏮️) sin interrupciones.
-* **Descarga a local**: Descarga cualquier canción del servidor FTP a la carpeta `Music/Boumusic/` de tu teléfono para escucharla sin conexión.
+### 🎸 4. Navegación por Géneros, Artistas y Álbumes (¡Nuevo v1.7.0!)
+* **Pestaña Géneros**: Nueva subpestaña en la vista principal que agrupa toda tu música por género musical (Rock, Pop, Electrónica, Hip-Hop, etc.).
+* **Contador de canciones**: Consulta de un vistazo cuántas pistas componen cada género en tu almacenamiento.
+* **Filtrado instantáneo**: Toca cualquier género para ver y reproducir únicamente sus temas correspondientes.
 
 ---
 
-### 💻➡️📱 5. Transferencia Wi-Fi por Lotes desde PC
-* **Servidor web local integrado (Puerto 8080)**: Olvídate de los cables USB.
-* **Subida masiva por lotes (Drag & Drop)**: Arrastra decenas de archivos de audio desde tu navegador de PC (Chrome, Firefox, Edge).
-* **Organización automática**: Los archivos se guardan directamente en `Music/Boumusic/` y se indexan en tiempo real en la biblioteca sin necesidad de reiniciar la app.
+### 🔒 5. Compatibilidad con FTPS Seguro (TLS/SSL) (¡Nuevo v1.7.0!)
+* **Conexión encriptada**: Soporte nativo para conexiones seguras FTPS (`FTPSClient` TLS) con protección estricta de canales de datos (`PBSZ 0` y `PROT P`).
+* **Selector FTP / FTPS**: Elige el protocolo directamente al añadir o editar un servidor favorito.
+* **Streaming y búsqueda cifrada**: Reproduce y busca canciones en tu NAS o servidor con total privacidad tanto en red local como a través de Internet.
 
 ---
 
-### 📑 6. Gestión Completa de Listas de Reproducción
-* **Creación y personalización**: Crea listas de reproducción desde la pestaña **Listas** o directamente al escuchar una canción.
-* **Añadir / quitar canciones**: Gestión rápida desde el menú contextual (⋮) de cualquier canción.
-* **Exportación e Importación `.m3u`**: Exporta tus listas al formato estándar `.m3u` en `Music/Boumusic/Playlists/` para compartirlas o respaldarlas.
+### 🛡️ 6. Transferencia Wi-Fi desde PC con PIN y Auto-Apagado (¡Nuevo v1.7.0!)
+* **Código PIN opcional**: Protege la subida de archivos desde tu ordenador solicitando un código PIN de seguridad antes de procesar envíos.
+* **Auto-apagado inteligente**: El servidor HTTP local se apaga automáticamente tras 15 minutos de inactividad para conservar la batería de tu teléfono.
+* **Subida Drag & Drop por lotes**: Sube decenas de pistas directamente desde el navegador de tu PC (puerto 8080) sin cables USB.
 
 ---
 
-### 🎧 7. Reproducción y Audio de Alta Fidelidad
-* **Motor AndroidX Media3 (ExoPlayer)**: Máxima compatibilidad con formatos de alta resolución: **MP3, FLAC, M4A, AAC, WAV, OGG**.
-* **Reproducción en segundo plano**: Servicio en segundo plano con `MediaSessionService`. La música no se detiene al apagar la pantalla ni al cambiar de aplicación.
-* **Controles en barra de notificaciones y bloqueo**: Pausa, reanuda y salta pistas desde los controles nativos de Android.
-* **Cola editable**: Opción *"Reproducir a continuación"* para colar temas prioritarios.
-* **Modos de reproducción**: Reproducción aleatoria (Shuffle) y repetición (Repetir todo / Repetir una canción / Desactivado).
+### ⚙️ 7. Menú y Diálogo de Ajustes de la App (¡Nuevo v1.7.0!)
+* **Configuración centralizada**: Icono de ajustes accesible en la esquina superior de la biblioteca.
+* **Salto inteligente FTP**: Activa o desactiva el salto automático de canciones remotas cuando no hay conexión.
+* **Reescaneo de biblioteca**: Actualiza y recarga toda la colección de audio local en un solo clic.
+* **Formatos soportados e información**: Consulta códecs compatibles, versión instalada y estado del reproductor.
 
 ---
 
-### ⏱️ 8. Temporizador de Apagado (Sleep Timer)
-* Temporizador integrado con ajustes rápidos de **15, 30, 45, 60 y 90 minutos**.
-* Indicador visual en la pantalla de reproducción con cuenta regresiva en vivo del tiempo restante.
-* Detiene la reproducción suavemente al finalizar el tiempo programado.
+### 🔍 8. Buscador Inteligente en Servidores FTP
+* **Filtro local**: Búsqueda instantánea en la carpeta actual del servidor.
+* **Rastreo profundo BFS**: Rastreo en segundo plano multihilo por todas las subcarpetas del servidor.
+* **Acciones directas**: Streaming en directo, añadir a playlists, encolado automático y descarga a local (`Music/Boumusic/`).
 
 ---
 
-### 🎨 9. Experiencia de Usuario y Diseño
-* **100% Jetpack Compose y Material 3**: Animaciones fluidas, componentes modernos y tipografía cuidada.
-* **Tema Oscuro Neón**: Paleta con fondos oscuros profundos (`#0C0A17`), contrastes Neon Cyan (`#00F5D4`) y acentos Electric Purple (`#7B2CBF`).
-* **Navegación por Pestañas**:
-  * **Canciones**: Con pestañas secundarias para filtrar por *Todas*, *Artistas* o *Álbumes*.
-  * **Listas**: Vista de tarjetas con conteo de temas y acciones rápidas.
-  * **Servidor FTP**: Explorador de archivos con indicador de carga, estado y buscador integrado.
-* **Búsqueda Instantánea**: Filtra en tiempo real por título, artista o álbum.
-* **Internacionalización**: Compatible en Español e Inglés según el idioma del dispositivo.
+### 🔵 9. Compartir Música: Bluetooth / Quick Share y Código QR
+* **🔵 Bluetooth / Quick Share**: Transfiere canciones o listas completas de móvil a móvil sin internet ni red Wi-Fi compartida.
+* **📷 Código QR**: Genera un portal web local en tiempo real para que cualquier amigo escuche en streaming o descargue listas enteras en `.zip`.
+
+---
+
+### 🌐 10. Canciones FTP en Listas de Reproducción
+* **Integración en playlists**: Mezcla canciones locales con temas alojados en tu NAS/servidor.
+* **Salto automático con notificación**: Si estás fuera de tu red, Boumusic detecta la falta de conexión, salta la canción remota y te avisa mediante notificación push.
+
+---
+
+### ⏱️ 11. Temporizador de Apagado (Sleep Timer)
+* Ajustes rápidos de **15, 30, 45, 60 y 90 minutos**.
+* Indicador de cuenta regresiva en vivo y apagado gradual de reproducción.
 
 ---
 
@@ -117,8 +106,10 @@ Descarga siempre la versión más reciente en formato APK lista para instalar:
 | :--- | :--- |
 | **Lenguaje** | Kotlin 2.0 (JVM 17) |
 | **UI Framework** | Jetpack Compose con Material Design 3 |
-| **Audio Core** | AndroidX Media3 1.4.0 (ExoPlayer + MediaSession) |
-| **Buscador & Cliente FTP** | Crawler BFS multihilo + Apache Commons Net 3.10.0 |
+| **Widget Nativo** | AppWidgetProvider + RemoteViews (Android 12+ compat) |
+| **Audio Core** | AndroidX Media3 1.4.0 (ExoPlayer + MediaSessionService) |
+| **Audio Processing** | Android AudioEffect (Equalizer + BassBoost) |
+| **Cliente FTP / FTPS** | Apache Commons Net 3.10.0 (FTPClient & FTPSClient TLS) |
 | **Compartir / Transferencia** | FileProvider Android + Bluetooth / Quick Share + Sockets HTTP / ZIP |
 | **Generador QR** | ZXing Core 3.5.3 |
 | **Carga de Imágenes** | Coil Compose 2.7.0 |
@@ -128,7 +119,7 @@ Descarga siempre la versión más reciente en formato APK lista para instalar:
 
 ## 📥 Guía de Instalación
 
-1. Descarga el archivo [Boumusic.apk](https://github.com/bouet21/Bouetmusic/releases/download/v1.6.0/Boumusic.apk).
+1. Descarga el archivo [Boumusic.apk](https://github.com/bouet21/Bouetmusic/releases/download/v1.7.0/Boumusic.apk).
 2. Si lo descargas desde el navegador de tu móvil, pulsa la notificación de descarga completada.
 3. Si el sistema te lo solicita, activa la casilla **"Confiar en esta fuente"** para permitir la instalación de APKs.
 4. Concede los permisos de almacenamiento al abrir la aplicación para que Boumusic pueda indexar tu música.
@@ -137,13 +128,6 @@ Descarga siempre la versión más reciente en formato APK lista para instalar:
 
 ## 💻 Compilación desde el Código Fuente
 
-Si deseas compilar la aplicación tú mismo desde el código fuente:
-
-### Requisitos previos:
-- **JDK 17** (ej. Eclipse Temurin 17 LTS o Android Studio JBR compatible).
-- **Android SDK** con API Level 34 instalado.
-
-### Pasos:
 ```powershell
 # Clonar el repositorio
 git clone https://github.com/bouet21/Bouetmusic.git
@@ -156,11 +140,11 @@ echo "sdk.dir=C:\\Users\\TU_USUARIO\\AppData\\Local\\Android\\Sdk" > local.prope
 .\gradlew.bat assembleDebug
 ```
 
-El archivo compilado se generará en:
+El archivo APK generado se encontrará en:
 `app/build/outputs/apk/debug/app-debug.apk`
 
 ---
 
 ## 📄 Licencia
 
-Este proyecto está disponible bajo la licencia libre para uso personal y comunitario. Desarrollado con ❤️ para una experiencia musical pura, moderna y sin anuncios.
+Este proyecto está disponible bajo la licencia libre para uso personal y comunitario. Desarrollado con ❤️ para una experiencia musical pura, moderna, personalizable y sin anuncios.

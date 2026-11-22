@@ -13,7 +13,8 @@ data class Song(
     val dataPath: String,
     val isFtp: Boolean = false,
     val ftpPath: String = "",
-    val ftpServerHost: String = ""
+    val ftpServerHost: String = "",
+    val genre: String = "Varios"
 ) {
     val formattedDuration: String
         get() {

@@ -59,6 +59,19 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Widget de pantalla de inicio -->
+        <receiver
+            android:name=".widget.MusicWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.boumusic.player.widget.ACTION_UPDATE_WIDGET" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/music_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>

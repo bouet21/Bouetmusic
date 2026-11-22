@@ -18,11 +18,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Share
@@ -88,6 +90,8 @@ fun NowPlayingScreen(
     onCycleRepeat: () -> Unit,
     onSetSleepTimer: (Int) -> Unit = {},
     onShareClick: (Song) -> Unit = {},
+    onOpenEqualizer: () -> Unit = {},
+    onOpenQueue: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isUserDraggingSlider by remember { mutableStateOf(false) }
@@ -201,6 +205,26 @@ fun NowPlayingScreen(
             )
 
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Botón cola de reproducción
+                IconButton(onClick = onOpenQueue) {
+                    Icon(
+                        imageVector = Icons.Default.QueueMusic,
+                        contentDescription = "Cola de reproducción",
+                        tint = NeonCyan,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // Botón ecualizador de audio
+                IconButton(onClick = onOpenEqualizer) {
+                    Icon(
+                        imageVector = Icons.Default.GraphicEq,
+                        contentDescription = "Ecualizador de audio",
+                        tint = NeonCyan,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
                 // Botón compartir (Bluetooth o QR)
                 IconButton(onClick = { onShareClick(song) }) {
                     Icon(

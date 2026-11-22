@@ -20,15 +20,28 @@ class MusicRepository(private val context: Context) {
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         }
 
-        val projection = arrayOf(
-            MediaStore.Audio.Media._ID,
-            MediaStore.Audio.Media.TITLE,
-            MediaStore.Audio.Media.ARTIST,
-            MediaStore.Audio.Media.ALBUM,
-            MediaStore.Audio.Media.DURATION,
-            MediaStore.Audio.Media.DATA,
-            MediaStore.Audio.Media.ALBUM_ID
-        )
+        val projection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            arrayOf(
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.TITLE,
+                MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.ALBUM,
+                MediaStore.Audio.Media.DURATION,
+                MediaStore.Audio.Media.DATA,
+                MediaStore.Audio.Media.ALBUM_ID,
+                MediaStore.Audio.Media.GENRE
+            )
+        } else {
+            arrayOf(
+                MediaStore.Audio.Media._ID,
+                MediaStore.Audio.Media.TITLE,
+                MediaStore.Audio.Media.ARTIST,
+                MediaStore.Audio.Media.ALBUM,
+                MediaStore.Audio.Media.DURATION,
+                MediaStore.Audio.Media.DATA,
+                MediaStore.Audio.Media.ALBUM_ID
+            )
+        }
 
         // Filtrar archivos que sean identificados como música y con al menos 5 segundos de duración
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 5000"
@@ -51,6 +64,9 @@ class MusicRepository(private val context: Context) {
                 val durationCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
                 val dataCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
                 val albumIdCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+                val genreCol = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    it.getColumnIndex(MediaStore.Audio.Media.GENRE)
+                } else -1
 
                 while (it.moveToNext()) {
                     val id = it.getLong(idCol)
@@ -60,6 +76,8 @@ class MusicRepository(private val context: Context) {
                     val duration = it.getLong(durationCol)
                     val dataPath = it.getString(dataCol) ?: ""
                     val albumId = it.getLong(albumIdCol)
+                    val rawGenre = if (genreCol != -1) it.getString(genreCol) else null
+                    val genre = if (rawGenre.isNullOrBlank() || rawGenre == "<unknown>") "Varios" else rawGenre
 
                     val contentUri = ContentUris.withAppendedId(
                         MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -83,7 +101,8 @@ class MusicRepository(private val context: Context) {
                             duration = duration,
                             contentUri = contentUri,
                             albumArtUri = albumArtUri,
-                            dataPath = dataPath
+                            dataPath = dataPath,
+                            genre = genre
                         )
                     )
                 }

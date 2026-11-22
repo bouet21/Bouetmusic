@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -56,7 +57,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentTab = MutableStateFlow(0)
     val currentTab: StateFlow<Int> = _currentTab.asStateFlow()
 
-    // Sub-pestaña en Canciones (0 = Todas, 1 = Artistas, 2 = Álbumes)
+    // Sub-pestaña en Canciones (0 = Todas, 1 = Artistas, 2 = Álbumes, 3 = Géneros)
     private val _songsSubTab = MutableStateFlow(0)
     val songsSubTab: StateFlow<Int> = _songsSubTab.asStateFlow()
 
@@ -66,17 +67,32 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedAlbum = MutableStateFlow<String?>(null)
     val selectedAlbum: StateFlow<String?> = _selectedAlbum.asStateFlow()
 
+    private val _selectedGenre = MutableStateFlow<String?>(null)
+    val selectedGenre: StateFlow<String?> = _selectedGenre.asStateFlow()
+
     // Canciones y búsqueda
     private val _songs = MutableStateFlow<List<Song>>(emptyList())
     val songs: StateFlow<List<Song>> = _songs.asStateFlow()
+
+    val genres: StateFlow<List<String>> = _songs.map { list ->
+        list.map { it.genre.ifBlank { "Varios" } }.distinct().sorted()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Cola de reproducción editable
+    private val _playbackQueue = MutableStateFlow<List<Song>>(emptyList())
+    val playbackQueue: StateFlow<List<Song>> = _playbackQueue.asStateFlow()
+
+    // PIN de seguridad para transferencia Wi-Fi
+    private val _transferPin = MutableStateFlow("")
+    val transferPin: StateFlow<String> = _transferPin.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     val filteredSongs: StateFlow<List<Song>> = combine(
         combine(_songs, _searchQuery) { s, q -> Pair(s, q) },
-        combine(_selectedArtist, _selectedAlbum) { a, b -> Pair(a, b) }
-    ) { (songList, query), (artist, album) ->
+        combine(_selectedArtist, _selectedAlbum, _selectedGenre) { a, b, g -> Triple(a, b, g) }
+    ) { (songList, query), (artist, album, genre) ->
         var list = songList
         if (artist != null) {
             list = list.filter { it.artist.equals(artist, ignoreCase = true) }
@@ -84,11 +100,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         if (album != null) {
             list = list.filter { it.album.equals(album, ignoreCase = true) }
         }
+        if (genre != null) {
+            list = list.filter { it.genre.equals(genre, ignoreCase = true) }
+        }
         if (query.isNotBlank()) {
             list = list.filter {
                 it.title.contains(query, ignoreCase = true) ||
                 it.artist.contains(query, ignoreCase = true) ||
-                it.album.contains(query, ignoreCase = true)
+                it.album.contains(query, ignoreCase = true) ||
+                it.genre.contains(query, ignoreCase = true)
             }
         }
         list
@@ -227,6 +247,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 val controller = controllerFuture.get()
                 mediaController = controller
                 setupPlayerListener(controller)
+                equalizerManager.attachToSession(MusicService.activeAudioSessionId)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -337,17 +358,26 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         if (subTab == 0) {
             _selectedArtist.value = null
             _selectedAlbum.value = null
+            _selectedGenre.value = null
         }
     }
 
     fun filterByArtist(artist: String?) {
         _selectedArtist.value = artist
         _selectedAlbum.value = null
+        _selectedGenre.value = null
     }
 
     fun filterByAlbum(album: String?) {
         _selectedAlbum.value = album
         _selectedArtist.value = null
+        _selectedGenre.value = null
+    }
+
+    fun filterByGenre(genre: String?) {
+        _selectedGenre.value = genre
+        _selectedArtist.value = null
+        _selectedAlbum.value = null
     }
 
     fun setPermissionGranted(granted: Boolean) {
@@ -388,6 +418,57 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
         val nextIndex = (controller.currentMediaItemIndex + 1).coerceAtMost(controller.mediaItemCount)
         controller.addMediaItem(nextIndex, mediaItem)
+
+        val q = _playbackQueue.value.toMutableList()
+        val insertIndex = nextIndex.coerceIn(0, q.size)
+        q.add(insertIndex, song)
+        _playbackQueue.value = q
+    }
+
+    // GESTIÓN DE COLA DE REPRODUCCIÓN
+    fun playQueueSongAt(index: Int) {
+        val controller = mediaController ?: return
+        if (index in 0 until controller.mediaItemCount) {
+            controller.seekTo(index, 0L)
+            controller.play()
+            _currentSong.value = _playbackQueue.value.getOrNull(index)
+        }
+    }
+
+    fun removeSongFromQueue(index: Int) {
+        val controller = mediaController ?: return
+        if (index in 0 until _playbackQueue.value.size) {
+            val currentList = _playbackQueue.value.toMutableList()
+            currentList.removeAt(index)
+            _playbackQueue.value = currentList
+            if (index in 0 until controller.mediaItemCount) {
+                controller.removeMediaItem(index)
+            }
+        }
+    }
+
+    fun moveQueueItem(fromIndex: Int, toIndex: Int) {
+        val controller = mediaController ?: return
+        val currentList = _playbackQueue.value.toMutableList()
+        if (fromIndex in currentList.indices && toIndex in currentList.indices) {
+            val item = currentList.removeAt(fromIndex)
+            currentList.add(toIndex, item)
+            _playbackQueue.value = currentList
+            controller.moveMediaItem(fromIndex, toIndex)
+        }
+    }
+
+    fun clearQueue() {
+        val controller = mediaController ?: return
+        _playbackQueue.value = emptyList()
+        controller.clearMediaItems()
+        _currentSong.value = null
+        _isPlaying.value = false
+    }
+
+    fun setTransferPin(pin: String) {
+        _transferPin.value = pin
+        transferServer?.pin = pin.ifBlank { null }
     }
 
     // TEMPORIZADOR DE APAGADO (SLEEP TIMER)
@@ -864,6 +945,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         _currentFtpPlaylist.value = list
+        _playbackQueue.value = list
         controller.setMediaItems(mediaItems, startIndex, 0L)
         controller.prepare()
         controller.play()

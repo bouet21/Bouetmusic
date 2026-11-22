@@ -8,7 +8,8 @@ data class FtpConfig(
     val host: String = "",
     val port: Int = 21,
     val username: String = "anonymous",
-    val password: String = ""
+    val password: String = "",
+    val isFtps: Boolean = false
 )
 
 data class FtpItem(

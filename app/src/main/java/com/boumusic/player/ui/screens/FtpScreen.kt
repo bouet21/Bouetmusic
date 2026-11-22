@@ -47,6 +47,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -100,6 +102,7 @@ fun FtpScreen(
     var port by remember { mutableStateOf("21") }
     var user by remember { mutableStateOf("anonymous") }
     var pass by remember { mutableStateOf("") }
+    var isFtps by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -154,6 +157,7 @@ fun FtpScreen(
                                         port = cfg.port.toString()
                                         user = cfg.username
                                         pass = cfg.password
+                                        isFtps = cfg.isFtps
                                         viewModel.connectFtp(cfg)
                                     }
                                     .padding(horizontal = 14.dp, vertical = 10.dp),
@@ -162,7 +166,20 @@ fun FtpScreen(
                                 Icon(Icons.Default.Bookmark, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(22.dp))
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(cfg.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(cfg.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        if (cfg.isFtps) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(NeonCyan.copy(alpha = 0.15f))
+                                                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                                            ) {
+                                                Text("FTPS", color = NeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
                                     Text("${cfg.host}:${cfg.port} (${cfg.username})", color = TextSecondary, fontSize = 12.sp)
                                 }
                                 IconButton(
@@ -247,6 +264,34 @@ fun FtpScreen(
                             colors = ftpTextFieldColors()
                         )
 
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Toggle de seguridad FTPS (TLS/SSL)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(DarkSurfaceVariant)
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Conexión segura FTPS (TLS)", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text("Cifrado SSL/TLS de credenciales y datos", color = TextSecondary, fontSize = 11.sp)
+                            }
+                            Switch(
+                                checked = isFtps,
+                                onCheckedChange = { isFtps = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = NeonCyan,
+                                    checkedTrackColor = NeonCyan.copy(alpha = 0.3f),
+                                    uncheckedThumbColor = TextSecondary,
+                                    uncheckedTrackColor = DarkSurface
+                                )
+                            )
+                        }
+
                         if (errorMessage != null) {
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
@@ -266,7 +311,8 @@ fun FtpScreen(
                                     host = host.trim(),
                                     port = parsedPort,
                                     username = user.trim(),
-                                    password = pass
+                                    password = pass,
+                                    isFtps = isFtps
                                 )
                                 viewModel.connectFtp(cfg)
                             },

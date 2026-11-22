@@ -35,7 +35,13 @@ class TransferServer(
 ) {
     private var serverSocket: ServerSocket? = null
     private var serverJob: Job? = null
+    private var watchdogJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO)
+
+    var pin: String? = null
+    var autoStopMinutes: Int = 15
+    private var lastActivityTime: Long = System.currentTimeMillis()
+    var onAutoStopped: (() -> Unit)? = null
 
     var isRunning: Boolean = false
         private set
@@ -46,6 +52,7 @@ class TransferServer(
         try {
             serverSocket = ServerSocket(port)
             isRunning = true
+            lastActivityTime = System.currentTimeMillis()
 
             val ip = NetworkUtils.getLocalIpAddress(context) ?: "127.0.0.1"
             val serverUrl = "http://$ip:$port"
@@ -63,6 +70,17 @@ class TransferServer(
                 }
             }
 
+            watchdogJob = scope.launch {
+                while (isRunning) {
+                    kotlinx.coroutines.delay(30000)
+                    if (autoStopMinutes > 0 && (System.currentTimeMillis() - lastActivityTime) > (autoStopMinutes * 60 * 1000L)) {
+                        stop()
+                        onAutoStopped?.invoke()
+                        break
+                    }
+                }
+            }
+
             onSuccess(serverUrl)
         } catch (e: Exception) {
             isRunning = false
@@ -72,6 +90,8 @@ class TransferServer(
 
     fun stop() {
         isRunning = false
+        watchdogJob?.cancel()
+        watchdogJob = null
         try {
             serverSocket?.close()
         } catch (e: Exception) {
