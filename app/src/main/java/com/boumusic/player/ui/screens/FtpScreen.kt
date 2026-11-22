@@ -2,6 +2,7 @@ package com.boumusic.player.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,23 +19,32 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -49,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,7 +69,6 @@ import com.boumusic.player.model.FtpItem
 import com.boumusic.player.ui.theme.DarkCardBorder
 import com.boumusic.player.ui.theme.DarkSurface
 import com.boumusic.player.ui.theme.DarkSurfaceVariant
-import com.boumusic.player.ui.theme.DeepCyan
 import com.boumusic.player.ui.theme.ElectricPurple
 import com.boumusic.player.ui.theme.NeonCyan
 import com.boumusic.player.ui.theme.TextPrimary
@@ -78,6 +88,13 @@ fun FtpScreen(
     val errorMessage by viewModel.ftpErrorMessage.collectAsState()
     val savedConfigs by viewModel.savedFtpConfigs.collectAsState()
 
+    // Búsqueda en servidor FTP
+    val ftpSearchQuery by viewModel.ftpSearchQuery.collectAsState()
+    val isFtpSearchingServer by viewModel.isFtpSearchingServer.collectAsState()
+    val ftpSearchResults by viewModel.ftpSearchResults.collectAsState()
+    val isFtpDeepSearchActive by viewModel.isFtpDeepSearchActive.collectAsState()
+    val filteredFtpItems by viewModel.filteredFtpItems.collectAsState()
+
     var name by remember { mutableStateOf("Mi Servidor FTP") }
     var host by remember { mutableStateOf("192.168.1.100") }
     var port by remember { mutableStateOf("21") }
@@ -91,7 +108,7 @@ fun FtpScreen(
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Cabecera
+        // Cabecera superior
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -267,69 +284,322 @@ fun FtpScreen(
                 }
             }
         } else {
-            // Explorador de archivos FTP conectado
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(DarkSurfaceVariant)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (currentPath != "/" && currentPath.isNotBlank()) {
-                    IconButton(
-                        onClick = { viewModel.navigateFtpUp() },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Subir nivel", tint = TextPrimary)
+            // EXPLORADOR Y BUSCADOR FTP CONECTADO
+
+            // 1. Buscador de canciones en el servidor FTP
+            OutlinedTextField(
+                value = ftpSearchQuery,
+                onValueChange = { viewModel.setFtpSearchQuery(it) },
+                placeholder = { Text("Buscar canciones en FTP...", color = TextSecondary, fontSize = 14.sp) },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = "Buscar", tint = NeonCyan, modifier = Modifier.size(20.dp))
+                },
+                trailingIcon = {
+                    if (ftpSearchQuery.isNotBlank()) {
+                        IconButton(onClick = { viewModel.clearFtpSearch() }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Limpiar", tint = TextSecondary, modifier = Modifier.size(20.dp))
+                        }
                     }
-                }
-                Text(
-                    text = "Ruta: $currentPath",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                    color = NeonCyan,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { viewModel.startFtpDeepSearch() }),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = DarkSurface,
+                    unfocusedContainerColor = DarkSurface,
+                    focusedBorderColor = NeonCyan,
+                    unfocusedBorderColor = DarkCardBorder,
+                    focusedTextColor = TextPrimary,
+                    unfocusedTextColor = TextPrimary
                 )
+            )
 
-                Button(
-                    onClick = { viewModel.disconnectFtp() },
-                    colors = ButtonDefaults.buttonColors(containerColor = DarkSurface),
-                    modifier = Modifier.height(32.dp)
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 2. Barra de estado o navegación
+            if (isFtpDeepSearchActive) {
+                // Modo búsqueda profunda activa
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(DarkSurfaceVariant)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("Desconectar", color = TextSecondary, fontSize = 11.sp)
-                }
-            }
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        if (isFtpSearchingServer) {
+                            CircularProgressIndicator(
+                                color = NeonCyan,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Buscando... (${ftpSearchResults.size} canciones)",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                color = NeonCyan,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        } else {
+                            Icon(Icons.Default.Search, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Encontradas: ${ftpSearchResults.size} canciones",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                                color = NeonCyan,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = NeonCyan)
-                }
-            } else if (ftpItems.isEmpty()) {
-                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                    Text("No se encontraron archivos en este directorio.", color = TextSecondary)
+                    if (isFtpSearchingServer) {
+                        OutlinedButton(
+                            onClick = { viewModel.cancelFtpDeepSearch() },
+                            modifier = Modifier.height(30.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                        ) {
+                            Icon(Icons.Default.Stop, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Detener", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                        }
+                    } else {
+                        Button(
+                            onClick = { viewModel.setFtpDeepSearchActive(false) },
+                            colors = ButtonDefaults.buttonColors(containerColor = DarkSurface),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Text("Volver a carpetas", color = TextSecondary, fontSize = 11.sp)
+                        }
+                    }
                 }
             } else {
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(ftpItems, key = { it.path }) { item ->
-                        FtpItemRow(
-                            item = item,
-                            onOpenDir = { viewModel.navigateFtpFolder(item.path) },
-                            onPlay = { viewModel.playFtpSong(item) },
-                            onAddToPlaylist = { viewModel.addFtpSongToPlaylistDialog(item) },
-                            onDownload = {
-                                viewModel.downloadFtpSong(item) {
-                                    Toast.makeText(context, "Canción descargada en Music/Boumusic", Toast.LENGTH_SHORT).show()
-                                }
-                            }
+                // Modo explorador de carpetas normal
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(DarkSurfaceVariant)
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (currentPath != "/" && currentPath.isNotBlank()) {
+                        IconButton(
+                            onClick = { viewModel.navigateFtpUp() },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Subir nivel", tint = TextPrimary)
+                        }
+                    }
+                    Text(
+                        text = "Ruta: $currentPath",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                        color = NeonCyan,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+
+                    Button(
+                        onClick = { viewModel.disconnectFtp() },
+                        colors = ButtonDefaults.buttonColors(containerColor = DarkSurface),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Text("Desconectar", color = TextSecondary, fontSize = 11.sp)
+                    }
+                }
+
+                // Opción para buscar en todo el servidor si el usuario ha escrito una consulta
+                if (ftpSearchQuery.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilterChip(
+                            selected = true,
+                            onClick = {},
+                            label = { Text("En esta carpeta (${filteredFtpItems.size})", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = NeonCyan.copy(alpha = 0.15f),
+                                selectedLabelColor = NeonCyan
+                            )
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
+
+                        FilterChip(
+                            selected = false,
+                            onClick = { viewModel.startFtpDeepSearch() },
+                            label = { Text("🔍 Buscar en todo el servidor", fontSize = 12.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = DarkSurfaceVariant,
+                                labelColor = TextSecondary
+                            )
+                        )
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 3. Lista de resultados o contenido de carpeta
+            if (isFtpDeepSearchActive) {
+                // LISTA DE RESULTADOS DE BÚSQUEDA PROFUNDA
+                if (ftpSearchResults.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        if (isFtpSearchingServer) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = NeonCyan)
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text("Explorando carpetas del servidor FTP...", color = TextSecondary)
+                            }
+                        } else {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("No se encontraron canciones que coincidan con \"$ftpSearchQuery\"", color = TextSecondary)
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Button(
+                                    onClick = { viewModel.setFtpDeepSearchActive(false) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceVariant)
+                                ) {
+                                    Text("Volver a explorar carpetas", color = NeonCyan)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(ftpSearchResults, key = { it.path }) { item ->
+                            FtpSearchResultRow(
+                                item = item,
+                                onPlay = { viewModel.playFtpSong(item, ftpSearchResults) },
+                                onAddToPlaylist = { viewModel.addFtpSongToPlaylistDialog(item) },
+                                onDownload = {
+                                    viewModel.downloadFtpSong(item) {
+                                        Toast.makeText(context, "Canción descargada en Music/Boumusic", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                onGoToFolder = { viewModel.navigateToFtpItemFolder(item) }
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                        }
+                    }
+                }
+            } else {
+                // LISTA NORMAL DE CARPETA (O FILTRADA LOCALMENTE)
+                if (isLoading) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = NeonCyan)
+                    }
+                } else if (filteredFtpItems.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        if (ftpSearchQuery.isNotBlank()) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("Sin resultados en esta carpeta.", color = TextSecondary)
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Button(
+                                    onClick = { viewModel.startFtpDeepSearch() },
+                                    colors = ButtonDefaults.buttonColors(containerColor = NeonCyan)
+                                ) {
+                                    Text("🔍 Buscar en todo el servidor FTP", color = DarkSurface, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        } else {
+                            Text("No se encontraron archivos en este directorio.", color = TextSecondary)
+                        }
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(filteredFtpItems, key = { it.path }) { item ->
+                            FtpItemRow(
+                                item = item,
+                                onOpenDir = { viewModel.navigateFtpFolder(item.path) },
+                                onPlay = { viewModel.playFtpSong(item) },
+                                onAddToPlaylist = { viewModel.addFtpSongToPlaylistDialog(item) },
+                                onDownload = {
+                                    viewModel.downloadFtpSong(item) {
+                                        Toast.makeText(context, "Canción descargada en Music/Boumusic", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FtpSearchResultRow(
+    item: FtpItem,
+    onPlay: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onDownload: () -> Unit,
+    onGoToFolder: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(DarkSurface)
+            .clickable(onClick = onPlay)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(NeonCyan.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.MusicNote,
+                contentDescription = null,
+                tint = NeonCyan,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.name,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            val parentPath = item.path.substringBeforeLast("/").ifBlank { "/" }
+            Text(
+                text = "${item.formattedSize} • 📁 $parentPath",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
+                color = TextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        IconButton(onClick = onPlay, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir por streaming", tint = NeonCyan)
+        }
+        IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Default.PlaylistAdd, contentDescription = "Añadir a lista", tint = NeonCyan)
+        }
+        IconButton(onClick = onDownload, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Default.Download, contentDescription = "Descargar a local", tint = TextPrimary)
+        }
+        IconButton(onClick = onGoToFolder, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Default.FolderOpen, contentDescription = "Ir a carpeta", tint = ElectricPurple)
         }
     }
 }

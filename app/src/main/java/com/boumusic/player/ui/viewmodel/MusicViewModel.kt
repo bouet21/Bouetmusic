@@ -126,6 +126,30 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _ftpErrorMessage = MutableStateFlow<String?>(null)
     val ftpErrorMessage: StateFlow<String?> = _ftpErrorMessage.asStateFlow()
 
+    // Búsqueda en servidor FTP (Filtro local en carpeta y Búsqueda Profunda en todo el servidor)
+    private val _ftpSearchQuery = MutableStateFlow("")
+    val ftpSearchQuery: StateFlow<String> = _ftpSearchQuery.asStateFlow()
+
+    private val _isFtpSearchingServer = MutableStateFlow(false)
+    val isFtpSearchingServer: StateFlow<Boolean> = _isFtpSearchingServer.asStateFlow()
+
+    private val _ftpSearchResults = MutableStateFlow<List<FtpItem>>(emptyList())
+    val ftpSearchResults: StateFlow<List<FtpItem>> = _ftpSearchResults.asStateFlow()
+
+    private val _isFtpDeepSearchActive = MutableStateFlow(false)
+    val isFtpDeepSearchActive: StateFlow<Boolean> = _isFtpDeepSearchActive.asStateFlow()
+
+    private var ftpSearchJob: Job? = null
+
+    val filteredFtpItems: StateFlow<List<FtpItem>> = combine(_ftpItems, _ftpSearchQuery) { items, query ->
+        if (query.isBlank()) {
+            items
+        } else {
+            val q = query.lowercase().trim()
+            items.filter { it.name.lowercase().contains(q) }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Cola de canciones activas del FTP (para saltar siguiente/anterior fluidamente)
     private val _currentFtpPlaylist = MutableStateFlow<List<Song>>(emptyList())
 
@@ -513,12 +537,73 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun disconnectFtp() {
+        clearFtpSearch()
         ftpManager.disconnect()
         _isFtpConnected.value = false
         _currentFtpConfig.value = null
         _ftpItems.value = emptyList()
         _currentFtpPlaylist.value = emptyList()
         _ftpCurrentPath.value = "/"
+    }
+
+    // GESTIÓN DE BÚSQUEDA EN SERVIDOR FTP
+    fun setFtpSearchQuery(query: String) {
+        _ftpSearchQuery.value = query
+        if (query.isBlank()) {
+            cancelFtpDeepSearch()
+            _isFtpDeepSearchActive.value = false
+        }
+    }
+
+    fun setFtpDeepSearchActive(active: Boolean) {
+        _isFtpDeepSearchActive.value = active
+    }
+
+    fun startFtpDeepSearch(query: String? = null) {
+        val q = (query ?: _ftpSearchQuery.value).trim()
+        if (q.isBlank()) return
+
+        ftpSearchJob?.cancel()
+        _isFtpSearchingServer.value = true
+        _isFtpDeepSearchActive.value = true
+        _ftpSearchResults.value = emptyList()
+
+        ftpSearchJob = viewModelScope.launch {
+            val result = ftpManager.searchSongs(
+                query = q,
+                startPath = "/",
+                maxResults = 250,
+                maxDepth = 10,
+                onFoundBatch = { found ->
+                    _ftpSearchResults.value = found
+                }
+            )
+            result.onSuccess { list ->
+                _ftpSearchResults.value = list
+            }.onFailure {
+                // Mantener los resultados parciales que se hayan encontrado
+            }
+            _isFtpSearchingServer.value = false
+        }
+    }
+
+    fun cancelFtpDeepSearch() {
+        ftpSearchJob?.cancel()
+        ftpSearchJob = null
+        _isFtpSearchingServer.value = false
+    }
+
+    fun clearFtpSearch() {
+        cancelFtpDeepSearch()
+        _ftpSearchQuery.value = ""
+        _isFtpDeepSearchActive.value = false
+        _ftpSearchResults.value = emptyList()
+    }
+
+    fun navigateToFtpItemFolder(item: FtpItem) {
+        val parent = item.path.substringBeforeLast("/").ifBlank { "/" }
+        clearFtpSearch()
+        loadFtpFiles(parent)
     }
 
     fun addFtpSongToPlaylistDialog(item: FtpItem) {
@@ -529,7 +614,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             id = (item.path + host).hashCode().toLong(),
             title = item.name.substringBeforeLast("."),
             artist = cfg?.name ?: "Servidor FTP",
-            album = _ftpCurrentPath.value,
+            album = item.path.substringBeforeLast("/").ifBlank { "/" },
             duration = 0L,
             contentUri = Uri.parse(streamUrl),
             albumArtUri = null,
@@ -556,10 +641,12 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun navigateFtpFolder(path: String) {
+        clearFtpSearch()
         loadFtpFiles(path)
     }
 
     fun navigateFtpUp() {
+        clearFtpSearch()
         val current = _ftpCurrentPath.value.trimEnd('/')
         val lastSlash = current.lastIndexOf('/')
         val parent = if (lastSlash <= 0) "/" else current.substring(0, lastSlash)
@@ -571,25 +658,31 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // REPRODUCCIÓN Y SALTO FLUIDO DE CANCIONES FTP
-    fun playFtpSong(item: FtpItem) {
+    fun playFtpSong(item: FtpItem, customQueue: List<FtpItem>? = null) {
         val controller = mediaController ?: return
-        val audioItems = _ftpItems.value.filter { it.isAudio }
+        val audioItems = (customQueue ?: if (_isFtpDeepSearchActive.value) _ftpSearchResults.value else _ftpItems.value)
+            .filter { it.isAudio }
         if (audioItems.isEmpty()) return
 
         val index = audioItems.indexOfFirst { it.path == item.path }.coerceAtLeast(0)
+        val cfg = _currentFtpConfig.value
+        val host = cfg?.host ?: "Servidor FTP"
 
         // Crear lista completa de canciones FTP para que el skip (siguiente/anterior) funcione perfectamente
         val ftpSongs = audioItems.map { audio ->
             val streamUrl = ftpStreamBridge.getStreamUrl(audio.path, audio.size)
             Song(
-                id = audio.path.hashCode().toLong(),
+                id = (audio.path + host).hashCode().toLong(),
                 title = audio.name.substringBeforeLast("."),
-                artist = "Servidor FTP",
-                album = _ftpCurrentPath.value,
+                artist = cfg?.name ?: "Servidor FTP",
+                album = audio.path.substringBeforeLast("/").ifBlank { "/" },
                 duration = 0L,
                 contentUri = Uri.parse(streamUrl),
                 albumArtUri = null,
-                dataPath = audio.path
+                dataPath = audio.path,
+                isFtp = true,
+                ftpPath = audio.path,
+                ftpServerHost = host
             )
         }
         _currentFtpPlaylist.value = ftpSongs

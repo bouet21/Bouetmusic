@@ -4,6 +4,7 @@ import android.content.Context
 import com.boumusic.player.model.FtpConfig
 import com.boumusic.player.model.FtpItem
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.apache.commons.net.ftp.FTP
 import org.apache.commons.net.ftp.FTPClient
@@ -14,6 +15,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.UUID
+import kotlin.coroutines.coroutineContext
 
 class FtpManager(private val context: Context? = null) {
 
@@ -162,6 +164,83 @@ class FtpManager(private val context: Context? = null) {
             val sorted = items.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
             Result.success(sorted)
         } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Búsqueda recursiva (BFS) de canciones en el servidor FTP.
+     * Explora subcarpetas y emite los resultados encontrados en tiempo real.
+     */
+    suspend fun searchSongs(
+        query: String,
+        startPath: String = "/",
+        maxResults: Int = 250,
+        maxDepth: Int = 10,
+        onFoundBatch: ((List<FtpItem>) -> Unit)? = null
+    ): Result<List<FtpItem>> = withContext(Dispatchers.IO) {
+        val config = activeConfig ?: return@withContext Result.failure(Exception("No hay servidor FTP configurado"))
+        val client = FTPClient()
+        try {
+            client.connectTimeout = 10000
+            client.defaultTimeout = 15000
+            client.connect(config.host, config.port)
+            client.login(config.username.ifBlank { "anonymous" }, config.password)
+            client.enterLocalPassiveMode()
+            client.setFileType(FTP.BINARY_FILE_TYPE)
+
+            val results = mutableListOf<FtpItem>()
+            val queue = ArrayDeque<Pair<String, Int>>()
+            queue.add(Pair(if (startPath.isBlank()) "/" else startPath, 0))
+
+            val lowerQuery = query.lowercase().trim()
+
+            while (queue.isNotEmpty() && results.size < maxResults && coroutineContext.isActive) {
+                val (currentDir, depth) = queue.removeFirst()
+                if (depth > maxDepth) continue
+
+                val files = try {
+                    client.listFiles(currentDir)
+                } catch (e: Exception) {
+                    null
+                } ?: continue
+
+                var hasNewMatch = false
+
+                for (f in files) {
+                    if (!coroutineContext.isActive || results.size >= maxResults) break
+                    val name = f.name ?: continue
+                    if (name == "." || name == ".." || name.startsWith(".")) continue
+
+                    val fullPath = if (currentDir.endsWith("/")) "$currentDir$name" else "$currentDir/$name"
+
+                    if (f.isDirectory) {
+                        if (depth < maxDepth) {
+                            queue.add(Pair(fullPath, depth + 1))
+                        }
+                    } else {
+                        val item = FtpItem(name = name, path = fullPath, isDirectory = false, size = f.size)
+                        if (item.isAudio && name.lowercase().contains(lowerQuery)) {
+                            results.add(item)
+                            hasNewMatch = true
+                        }
+                    }
+                }
+
+                if (hasNewMatch) {
+                    onFoundBatch?.invoke(results.toList())
+                }
+            }
+
+            try {
+                client.disconnect()
+            } catch (ignored: Exception) {}
+
+            Result.success(results)
+        } catch (e: Exception) {
+            try {
+                client.disconnect()
+            } catch (ignored: Exception) {}
             Result.failure(e)
         }
     }
