@@ -524,6 +524,7 @@ private fun ServerCard(
     onDelete: () -> Unit
 ) {
     val badgeColor = when {
+        config.isSmb -> Color(0xFF29B6F6)
         config.isWebDav -> ElectricPurple
         config.isFtps -> NeonCyan
         else -> TextSecondary
@@ -571,7 +572,11 @@ private fun ServerCard(
                 }
             }
 
-            val address = if (config.isWebDav) "${config.host}:${config.port}${config.webDavPath}" else "${config.host}:${config.port}"
+            val address = when {
+                config.isSmb -> "\\\\${config.host}\\${config.cleanSmbShare}"
+                config.isWebDav -> "${config.host}:${config.port}${config.webDavPath}"
+                else -> "${config.host}:${config.port}"
+            }
             Text(
                 text = "$address • ${config.username}",
                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
@@ -776,13 +781,14 @@ private fun AddServerDialog(
     onDismiss: () -> Unit,
     onConnect: (FtpConfig) -> Unit
 ) {
-    var protocol by remember { mutableIntStateOf(0) } // 0 = FTP, 1 = FTPS, 2 = WebDAV
+    var protocol by remember { mutableIntStateOf(0) } // 0 = FTP, 1 = FTPS, 2 = WebDAV, 3 = SMB
     var name by remember { mutableStateOf("") }
     var host by remember { mutableStateOf("") }
     var port by remember { mutableStateOf("21") }
     var user by remember { mutableStateOf("anonymous") }
     var pass by remember { mutableStateOf("") }
     var webDavPath by remember { mutableStateOf("/") }
+    var smbShare by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -803,20 +809,30 @@ private fun AddServerDialog(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    listOf("FTP" to 0, "FTPS Seguro" to 1, "WebDAV" to 2).forEach { (label, index) ->
+                    listOf("FTP" to 0, "FTPS Seguro" to 1, "WebDAV" to 2, "SMB (Windows/Linux)" to 3).forEach { (label, index) ->
+                        val chipColor = when (index) {
+                            3 -> Color(0xFF29B6F6)
+                            2 -> ElectricPurple
+                            else -> NeonCyan
+                        }
                         FilterChip(
                             selected = protocol == index,
                             onClick = {
                                 protocol = index
-                                if (index == 2 && port == "21") port = "443"
-                                if (index != 2 && (port == "443" || port == "80")) port = "21"
+                                if (index == 3 && (port == "21" || port == "443")) port = "445"
+                                if (index == 2 && (port == "21" || port == "445")) port = "443"
+                                if ((index == 0 || index == 1) && (port == "443" || port == "445")) port = "21"
+                                if (index == 3 && user == "anonymous") user = "guest"
+                                if (index != 3 && user == "guest") user = "anonymous"
                             },
                             label = { Text(label, fontSize = 11.sp) },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = if (index == 2) ElectricPurple else NeonCyan,
+                                selectedContainerColor = chipColor,
                                 selectedLabelColor = if (index == 2) TextPrimary else DarkSurface,
                                 containerColor = DarkSurfaceVariant,
                                 labelColor = TextSecondary
@@ -872,13 +888,26 @@ private fun AddServerDialog(
                     )
                 }
 
+                if (protocol == 3) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = smbShare,
+                        onValueChange = { smbShare = it },
+                        label = { Text("Carpeta compartida (Share)", color = TextSecondary) },
+                        placeholder = { Text("Ej: Musica o Shared", color = TextSecondary) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ftpTextFieldColors()
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 OutlinedTextField(
                     value = user,
                     onValueChange = { user = it },
-                    label = { Text("Usuario", color = TextSecondary) },
-                    placeholder = { Text("anonymous (si no tiene)", color = TextSecondary) },
+                    label = { Text(if (protocol == 3) "Usuario de Windows/Linux" else "Usuario", color = TextSecondary) },
+                    placeholder = { Text(if (protocol == 3) "guest o tu usuario de Windows" else "anonymous (si no tiene)", color = TextSecondary) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ftpTextFieldColors()
@@ -909,16 +938,30 @@ private fun AddServerDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val parsedPort = port.toIntOrNull() ?: if (protocol == 2) 443 else 21
+                    val defaultPort = when (protocol) {
+                        3 -> 445
+                        2 -> 443
+                        else -> 21
+                    }
+                    val parsedPort = port.toIntOrNull() ?: defaultPort
+                    val defaultName = when (protocol) {
+                        3 -> "Carpeta Windows (SMB)"
+                        2 -> "Servidor WebDAV"
+                        else -> "Servidor FTP"
+                    }
+                    val defaultUser = if (protocol == 3) "guest" else "anonymous"
+
                     val config = FtpConfig(
-                        name = name.ifBlank { if (protocol == 2) "Servidor WebDAV" else "Servidor FTP" },
+                        name = name.ifBlank { defaultName },
                         host = host.trim(),
                         port = parsedPort,
-                        username = user.trim().ifBlank { "anonymous" },
+                        username = user.trim().ifBlank { defaultUser },
                         password = pass,
                         isFtps = (protocol == 1),
                         isWebDav = (protocol == 2),
-                        webDavPath = if (webDavPath.isBlank()) "/" else webDavPath.trim()
+                        webDavPath = if (webDavPath.isBlank()) "/" else webDavPath.trim(),
+                        isSmb = (protocol == 3),
+                        smbShare = smbShare.trim()
                     )
                     onConnect(config)
                 },

@@ -7,7 +7,7 @@
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-blueviolet)](https://github.com/bouet21/Bouetmusic/actions)
 [![No Ads](https://img.shields.io/badge/Publicidad-0%25%20(Sin%20Anuncios)-success)](#)
 
-**Boumusic** es un reproductor de música nativo para Android diseñado desde cero para disfrutar de tu música local y remota con la máxima fidelidad, interfaz futurista con tema oscuro neón (Neon Cyan y Electric Purple), cero anuncios y herramientas de nivel profesional: **soporte para servidores WebDAV y FTP/FTPS con streaming directo y caché**, **crossfade configurable y normalización de volumen (Loudness Enhancer)**, **filtros de biblioteca con lista negra de carpetas y exclusión de audios de WhatsApp**, **historial de reproducciones y estadísticas trimestrales tipo Wrapped**, **soporte bilingüe completo (Español/Inglés)** y **compilación continua automatizada (CI/CD)**.
+**Boumusic** es un reproductor de música nativo para Android diseñado desde cero para disfrutar de tu música local y remota con la máxima fidelidad, interfaz futurista con tema oscuro neón (Neon Cyan y Electric Purple), cero anuncios y herramientas de nivel profesional: **soporte para carpetas compartidas de Windows y Linux (SMB2/SMB3), servidores WebDAV y FTP/FTPS con streaming directo y caché**, **crossfade configurable y normalización de volumen (Loudness Enhancer)**, **filtros de biblioteca con lista negra de carpetas y exclusión de audios de WhatsApp**, **historial de reproducciones y estadísticas trimestrales tipo Wrapped**, **soporte bilingüe completo (Español/Inglés)** y **compilación continua automatizada (CI/CD)**.
 
 ---
 
@@ -15,12 +15,22 @@
 
 Descarga siempre la versión más reciente en formato APK lista para instalar en tu móvil:
 
-👉 **[Descargar Boumusic v1.9.0 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.9.0/Boumusic.apk)**  
+👉 **[Descargar Boumusic v1.9.1 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.9.1/Boumusic.apk)**  
 *(o visita todas las versiones en la sección de [Releases de GitHub](https://github.com/bouet21/Bouetmusic/releases))*
 
 ---
 
-## ✨ Novedades Principales de la v1.9.0
+## ✨ Novedades Principales de la v1.9.1
+
+### 💻 1. Soporte Nativo para Carpetas Compartidas de Windows y Linux (SMB2 / SMB3) (¡Nuevo v1.9.1!)
+* **Conexión directa a PCs con Windows y Linux**:
+  * Ahora puedes reproducir tu música directamente desde cualquier carpeta compartida de Windows (clic derecho -> Compartir en red) o servidor Samba en Linux sin necesidad de instalar ningún servidor FTP.
+  * Protocolo SMB2/SMB3 nativo y seguro con autenticación de usuario o acceso invitado (*guest*).
+* **Streaming y exploración fluida**:
+  * Navegación interactiva con migas de pan, reproducción aleatoria de carpetas compartidas y descarga a memoria local.
+* **Interfaz de Servidores simplificada y ergonómica**:
+  * Tarjetas directas para conectar con un solo toque a tus servidores guardados.
+  * Selector intuitivo de 4 protocolos: **FTP**, **FTPS Seguro**, **WebDAV** y **SMB (Windows/Linux)**.
 
 ### 🎚️ 1. Audio Avanzado: Crossfade y Normalización de Volumen (¡Nuevo v1.9.0!)
 * **Fundido cruzado (Crossfade) configurable**:

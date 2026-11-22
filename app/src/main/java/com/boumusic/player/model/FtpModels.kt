@@ -11,14 +11,20 @@ data class FtpConfig(
     val password: String = "",
     val isFtps: Boolean = false,
     val isWebDav: Boolean = false,
-    val webDavPath: String = "/"
+    val webDavPath: String = "/",
+    val isSmb: Boolean = false,
+    val smbShare: String = ""
 ) {
     val protocolLabel: String
         get() = when {
+            isSmb -> "SMB (Windows/Linux)"
             isWebDav -> "WebDAV"
             isFtps -> "FTPS"
             else -> "FTP"
         }
+
+    val cleanSmbShare: String
+        get() = smbShare.trim().removePrefix("/").removePrefix("\\").trimEnd('/', '\\')
 }
 
 data class FtpItem(

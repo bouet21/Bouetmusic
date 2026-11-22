@@ -3,6 +3,7 @@ package com.boumusic.player.ftp
 import android.content.Context
 import com.boumusic.player.model.FtpConfig
 import com.boumusic.player.model.FtpItem
+import com.boumusic.player.smb.SmbManager
 import com.boumusic.player.webdav.WebDavManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
@@ -22,6 +23,7 @@ class FtpManager(private val context: Context? = null) {
 
     private var activeConfig: FtpConfig? = null
     val webDavManager = WebDavManager(context)
+    val smbManager = SmbManager(context)
 
     val isConnected: Boolean
         get() = activeConfig != null
@@ -55,7 +57,9 @@ class FtpManager(private val context: Context? = null) {
                         password = o.optString("password", ""),
                         isFtps = o.optBoolean("isFtps", false),
                         isWebDav = o.optBoolean("isWebDav", false),
-                        webDavPath = o.optString("webDavPath", "/")
+                        webDavPath = o.optString("webDavPath", "/"),
+                        isSmb = o.optBoolean("isSmb", false),
+                        smbShare = o.optString("smbShare", "")
                     )
                 )
             }
@@ -83,6 +87,8 @@ class FtpManager(private val context: Context? = null) {
                 o.put("isFtps", c.isFtps)
                 o.put("isWebDav", c.isWebDav)
                 o.put("webDavPath", c.webDavPath)
+                o.put("isSmb", c.isSmb)
+                o.put("smbShare", c.smbShare)
                 arr.put(o)
             }
             file.writeText(arr.toString(2), Charsets.UTF_8)
@@ -107,6 +113,8 @@ class FtpManager(private val context: Context? = null) {
                 o.put("isFtps", c.isFtps)
                 o.put("isWebDav", c.isWebDav)
                 o.put("webDavPath", c.webDavPath)
+                o.put("isSmb", c.isSmb)
+                o.put("smbShare", c.smbShare)
                 arr.put(o)
             }
             file.writeText(arr.toString(2), Charsets.UTF_8)
@@ -138,6 +146,17 @@ class FtpManager(private val context: Context? = null) {
     }
 
     suspend fun connect(config: FtpConfig): Result<Boolean> = withContext(Dispatchers.IO) {
+        if (config.isSmb) {
+            val res = smbManager.testConnection(config)
+            return@withContext if (res.isSuccess) {
+                activeConfig = config
+                saveConfig(config)
+                Result.success(true)
+            } else {
+                Result.failure(res.exceptionOrNull() ?: Exception("No se pudo conectar a la carpeta compartida SMB"))
+            }
+        }
+
         if (config.isWebDav) {
             val res = webDavManager.testConnection(config)
             return@withContext if (res.isSuccess) {
@@ -183,6 +202,15 @@ class FtpManager(private val context: Context? = null) {
 
     suspend fun listFiles(path: String): Result<List<FtpItem>> = withContext(Dispatchers.IO) {
         val config = activeConfig ?: return@withContext Result.failure(Exception("No hay servidor configurado"))
+        if (config.isSmb) {
+            return@withContext try {
+                val list = smbManager.listFiles(config, path)
+                Result.success(list)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
         if (config.isWebDav) {
             return@withContext try {
                 val list = webDavManager.listFiles(config, path)
@@ -236,12 +264,12 @@ class FtpManager(private val context: Context? = null) {
         queue.add(Pair(if (startPath.isBlank()) "/" else startPath, 0))
         val lowerQuery = query.lowercase().trim()
 
-        if (config.isWebDav) {
+        if (config.isSmb || config.isWebDav) {
             while (queue.isNotEmpty() && results.size < maxResults && coroutineContext.isActive) {
                 val (currentDir, depth) = queue.removeFirst()
                 if (depth > maxDepth) continue
                 val items = try {
-                    webDavManager.listFiles(config, currentDir)
+                    if (config.isSmb) smbManager.listFiles(config, currentDir) else webDavManager.listFiles(config, currentDir)
                 } catch (e: Exception) {
                     emptyList()
                 }
@@ -328,12 +356,12 @@ class FtpManager(private val context: Context? = null) {
         val rootPath = if (startPath.isBlank()) "/" else startPath
         queue.add(Pair(rootPath, 0))
 
-        if (config.isWebDav) {
+        if (config.isSmb || config.isWebDav) {
             while (queue.isNotEmpty() && results.size < maxResults && coroutineContext.isActive) {
                 val (currentDir, depth) = queue.removeFirst()
                 if (depth > maxDepth) continue
                 val items = try {
-                    webDavManager.listFiles(config, currentDir)
+                    if (config.isSmb) smbManager.listFiles(config, currentDir) else webDavManager.listFiles(config, currentDir)
                 } catch (e: Exception) {
                     emptyList()
                 }
@@ -415,7 +443,7 @@ class FtpManager(private val context: Context? = null) {
 
     fun openNewClient(): FTPClient? {
         val config = activeConfig ?: return null
-        if (config.isWebDav) return null
+        if (config.isWebDav || config.isSmb) return null
         return try {
             val client = createFtpClient(config)
             client.connectTimeout = 10000
@@ -437,8 +465,20 @@ class FtpManager(private val context: Context? = null) {
         return webDavManager.openAudioStream(config, remotePath, offset)
     }
 
+    fun openSmbStream(remotePath: String, offset: Long = 0L): InputStream? {
+        val config = activeConfig ?: return null
+        return smbManager.openAudioStream(config, remotePath, offset)
+    }
+
     suspend fun downloadSong(remotePath: String, destFile: File, onProgress: (Int) -> Unit): Result<Boolean> = withContext(Dispatchers.IO) {
         val config = activeConfig ?: return@withContext Result.failure(Exception("No conectado a servidor"))
+        if (config.isSmb) {
+            val success = smbManager.downloadFile(config, remotePath, destFile) { progress ->
+                onProgress((progress * 100).toInt())
+            }
+            return@withContext if (success) Result.success(true) else Result.failure(Exception("Error al descargar archivo de SMB"))
+        }
+
         if (config.isWebDav) {
             val success = webDavManager.downloadFile(config, remotePath, destFile) { progress ->
                 onProgress((progress * 100).toInt())

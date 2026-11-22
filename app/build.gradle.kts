@@ -12,8 +12,8 @@ android {
         applicationId = "com.boumusic.player"
         minSdk = 24
         targetSdk = 34
-        versionCode = 15
-        versionName = "1.9.0"
+        versionCode = 16
+        versionName = "1.9.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -82,6 +82,9 @@ dependencies {
 
     // OkHttp para WebDAV y descargas HTTP/HTTPS
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    // SMBJ para carpetas compartidas de Windows y Linux (SMB2/SMB3)
+    implementation("com.hierynomus:smbj:0.13.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

@@ -38,6 +38,10 @@ class BoumusicLogicTest {
 
         val webDavConfig = FtpConfig(name = "Nextcloud", host = "cloud.example.com", port = 443, isFtps = false, isWebDav = true)
         assertEquals("WebDAV", webDavConfig.protocolLabel)
+
+        val smbConfig = FtpConfig(name = "PC Windows", host = "192.168.1.100", port = 445, isSmb = true, smbShare = "Musica")
+        assertEquals("SMB (Windows/Linux)", smbConfig.protocolLabel)
+        assertEquals("Musica", smbConfig.cleanSmbShare)
     }
 
     @Test
