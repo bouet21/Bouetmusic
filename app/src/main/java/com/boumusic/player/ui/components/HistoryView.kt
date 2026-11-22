@@ -70,6 +70,7 @@ fun HistoryView(
     var showTopSongsTab by remember { mutableStateOf(false) } // false = Recientes, true = Más escuchadas
     var showClearConfirmDialog by remember { mutableStateOf(false) }
 
+    val songsMap = remember(allSongs) { allSongs.associateBy { it.id } }
     val currentList = if (showTopSongsTab) topSongs else historySongs
 
     if (showClearConfirmDialog) {
@@ -237,7 +238,7 @@ fun HistoryView(
                     .weight(1f)
             ) {
                 itemsIndexed(currentList, key = { _, item -> item.songId }) { index, item ->
-                    val song = item.toSong(allSongs)
+                    val song = item.toSong(localSongsMap = songsMap)
                     val isPlayingThis = currentSong?.id == song.id
                     val subtitle = if (showTopSongsTab) {
                         "#${index + 1} • Escuchada ${item.playCount} veces • ${item.formattedTotalTime()}"

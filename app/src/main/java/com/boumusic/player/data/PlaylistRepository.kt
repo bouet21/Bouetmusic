@@ -108,7 +108,7 @@ class PlaylistRepository(private val context: Context) {
 
                 jsonArray.put(obj)
             }
-            playlistFile.writeText(jsonArray.toString(2), Charsets.UTF_8)
+            playlistFile.writeText(jsonArray.toString(), Charsets.UTF_8)
         } catch (e: Exception) {
             e.printStackTrace()
         }

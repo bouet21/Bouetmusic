@@ -19,8 +19,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DriveFileMove
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.DriveFileMove
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.GraphicEq
@@ -29,7 +30,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Share
@@ -263,7 +263,7 @@ fun NowPlayingScreen(
                 ) {
                     DropdownMenuItem(
                         text = { Text("Cola de reproducción", color = TextPrimary) },
-                        leadingIcon = { Icon(Icons.Default.QueueMusic, contentDescription = null, tint = NeonCyan) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, tint = NeonCyan) },
                         onClick = {
                             showOptionsMenu = false
                             onOpenQueue()
@@ -296,7 +296,7 @@ fun NowPlayingScreen(
                     if (song.isFtp) {
                         DropdownMenuItem(
                             text = { Text("Saltar a siguiente carpeta", color = TextPrimary) },
-                            leadingIcon = { Icon(Icons.Default.DriveFileMove, contentDescription = null, tint = NeonCyan) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, contentDescription = null, tint = NeonCyan) },
                             onClick = {
                                 showOptionsMenu = false
                                 onSkipToNextFolder?.invoke()
@@ -555,7 +555,7 @@ fun NowPlayingScreen(
                 Icon(Icons.Default.Share, contentDescription = "Compartir", tint = NeonCyan, modifier = Modifier.size(20.dp))
             }
             IconButton(onClick = onOpenQueue, modifier = Modifier.size(40.dp)) {
-                Icon(Icons.Default.QueueMusic, contentDescription = "Cola", tint = NeonCyan, modifier = Modifier.size(20.dp))
+                Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Cola", tint = NeonCyan, modifier = Modifier.size(20.dp))
             }
         }
     }

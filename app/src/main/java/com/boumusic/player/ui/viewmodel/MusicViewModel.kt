@@ -113,28 +113,29 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     val filteredSongs: StateFlow<List<Song>> = combine(
-        combine(_songs, _searchQuery) { s, q -> Pair(s, q) },
-        combine(_selectedArtist, _selectedAlbum, _selectedGenre) { a, b, g -> Triple(a, b, g) }
-    ) { (songList, query), (artist, album, genre) ->
-        var list = songList
-        if (artist != null) {
-            list = list.filter { it.artist.equals(artist, ignoreCase = true) }
-        }
-        if (album != null) {
-            list = list.filter { it.album.equals(album, ignoreCase = true) }
-        }
-        if (genre != null) {
-            list = list.filter { it.genre.equals(genre, ignoreCase = true) }
-        }
-        if (query.isNotBlank()) {
-            list = list.filter {
-                it.title.contains(query, ignoreCase = true) ||
-                it.artist.contains(query, ignoreCase = true) ||
-                it.album.contains(query, ignoreCase = true) ||
-                it.genre.contains(query, ignoreCase = true)
+        _songs,
+        _searchQuery,
+        _selectedArtist,
+        _selectedAlbum,
+        _selectedGenre
+    ) { songList, query, artist, album, genre ->
+        if (artist == null && album == null && genre == null && query.isBlank()) {
+            songList
+        } else {
+            val q = query.trim()
+            val hasQuery = q.isNotBlank()
+            songList.filter { s ->
+                (artist == null || s.artist.equals(artist, ignoreCase = true)) &&
+                (album == null || s.album.equals(album, ignoreCase = true)) &&
+                (genre == null || s.genre.equals(genre, ignoreCase = true)) &&
+                (!hasQuery || (
+                    s.title.contains(q, ignoreCase = true) ||
+                    s.artist.contains(q, ignoreCase = true) ||
+                    s.album.contains(q, ignoreCase = true) ||
+                    s.genre.contains(q, ignoreCase = true)
+                ))
             }
         }
-        list
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Listas de reproducción
@@ -604,9 +605,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun getPlaylistSongs(playlist: Playlist): List<Song> {
-        val local = _songs.value
+        val localMap = _songs.value.associateBy { it.id }
+        val ftpMap = playlist.ftpSongs.associateBy { it.id }
         return playlist.songIds.mapNotNull { id ->
-            local.find { it.id == id } ?: playlist.ftpSongs.find { it.id == id }
+            localMap[id] ?: ftpMap[id]
         }
     }
 

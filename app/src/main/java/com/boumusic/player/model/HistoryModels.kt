@@ -55,9 +55,9 @@ data class SongHistoryItem(
         }
     }
 
-    fun toSong(localSongs: List<Song> = emptyList()): Song {
+    fun toSong(localSongs: List<Song> = emptyList(), localSongsMap: Map<Long, Song>? = null): Song {
         // Si la canción existe en la lista local, usar su URI de contenido real
-        val existing = localSongs.find { it.id == songId }
+        val existing = localSongsMap?.get(songId) ?: localSongs.find { it.id == songId }
         if (existing != null) return existing
 
         return Song(

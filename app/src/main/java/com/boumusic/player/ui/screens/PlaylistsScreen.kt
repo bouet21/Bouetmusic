@@ -19,12 +19,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -128,7 +128,7 @@ fun PlaylistsScreen(
         if (selectedPlaylist != null) {
             // Vista de detalle de la lista seleccionada
             val playlist = selectedPlaylist!!
-            val playlistSongs = viewModel.getPlaylistSongs(playlist)
+            val playlistSongs = remember(playlist, allSongs) { viewModel.getPlaylistSongs(playlist) }
 
             Column(
                 modifier = Modifier
@@ -141,7 +141,7 @@ fun PlaylistsScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     IconButton(onClick = { viewModel.selectPlaylist(null) }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = TextPrimary)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Volver", tint = TextPrimary)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
@@ -285,7 +285,7 @@ fun PlaylistsScreen(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(
-                                imageVector = Icons.Default.PlaylistPlay,
+                                imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
                                 contentDescription = null,
                                 tint = TextSecondary,
                                 modifier = Modifier.size(64.dp)
@@ -354,7 +354,7 @@ private fun PlaylistItemCard(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.PlaylistPlay,
+                imageVector = Icons.AutoMirrored.Filled.PlaylistPlay,
                 contentDescription = null,
                 tint = TextPrimary,
                 modifier = Modifier.size(28.dp)

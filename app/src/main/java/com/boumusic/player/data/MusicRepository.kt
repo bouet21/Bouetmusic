@@ -57,6 +57,11 @@ class MusicRepository(private val context: Context) {
             )
 
             cursor?.use {
+                val count = it.count
+                if (count > 0 && songList is ArrayList) {
+                    songList.ensureCapacity(count)
+                }
+
                 val idCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
                 val titleCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
                 val artistCol = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
@@ -67,6 +72,9 @@ class MusicRepository(private val context: Context) {
                 val genreCol = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     it.getColumnIndex(MediaStore.Audio.Media.GENRE)
                 } else -1
+
+                val albumArtBaseUri = Uri.parse("content://media/external/audio/albumart")
+                val mediaExternalUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
 
                 while (it.moveToNext()) {
                     val id = it.getLong(idCol)
@@ -79,15 +87,8 @@ class MusicRepository(private val context: Context) {
                     val rawGenre = if (genreCol != -1) it.getString(genreCol) else null
                     val genre = if (rawGenre.isNullOrBlank() || rawGenre == "<unknown>") "Varios" else rawGenre
 
-                    val contentUri = ContentUris.withAppendedId(
-                        MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                        id
-                    )
-
-                    val albumArtUri = ContentUris.withAppendedId(
-                        Uri.parse("content://media/external/audio/albumart"),
-                        albumId
-                    )
+                    val contentUri = ContentUris.withAppendedId(mediaExternalUri, id)
+                    val albumArtUri = ContentUris.withAppendedId(albumArtBaseUri, albumId)
 
                     val artist = if (rawArtist == "<unknown>" || rawArtist.isBlank()) "Artista desconocido" else rawArtist
                     val album = if (rawAlbum == "<unknown>" || rawAlbum.isBlank()) "Álbum desconocido" else rawAlbum

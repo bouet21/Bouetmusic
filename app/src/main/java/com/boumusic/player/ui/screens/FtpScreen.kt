@@ -24,7 +24,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
@@ -35,7 +36,6 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
@@ -492,7 +492,7 @@ fun FtpScreen(
                             onClick = { viewModel.navigateFtpUp() },
                             modifier = Modifier.size(32.dp)
                         ) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Subir nivel", tint = TextPrimary)
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Subir nivel", tint = TextPrimary)
                         }
                     }
                     Text(
@@ -756,7 +756,7 @@ private fun FtpSearchResultRow(
             ) {
                 DropdownMenuItem(
                     text = { Text("Añadir a lista", color = TextPrimary) },
-                    leadingIcon = { Icon(Icons.Default.PlaylistAdd, contentDescription = null, tint = NeonCyan) },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null, tint = NeonCyan) },
                     onClick = {
                         showMenu = false
                         onAddToPlaylist()
@@ -866,7 +866,7 @@ private fun FtpItemRow(
             }
         } else {
             IconButton(onClick = onAddToPlaylist, modifier = Modifier.size(34.dp)) {
-                Icon(Icons.Default.PlaylistAdd, contentDescription = "Añadir a lista", tint = NeonCyan, modifier = Modifier.size(18.dp))
+                Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Añadir a lista", tint = NeonCyan, modifier = Modifier.size(18.dp))
             }
             IconButton(onClick = onDownload, modifier = Modifier.size(34.dp)) {
                 Icon(Icons.Default.Download, contentDescription = "Descargar a local", tint = TextPrimary, modifier = Modifier.size(18.dp))

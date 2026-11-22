@@ -26,6 +26,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Bedtime
@@ -34,10 +37,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material.icons.filled.QueueMusic
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -248,7 +248,7 @@ fun MainScreen(
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.QueueMusic, contentDescription = null, tint = NeonCyan)
+                        Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null, tint = NeonCyan)
                         Spacer(modifier = Modifier.width(12.dp))
                         Text("Reproducir a continuación", color = TextPrimary, fontWeight = FontWeight.Medium)
                     }
@@ -264,7 +264,7 @@ fun MainScreen(
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.PlaylistAdd, contentDescription = null, tint = NeonCyan)
+                        Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null, tint = NeonCyan)
                         Spacer(modifier = Modifier.width(12.dp))
                         Text("Añadir a lista de reproducción...", color = TextPrimary, fontWeight = FontWeight.Medium)
                     }
@@ -357,7 +357,7 @@ fun MainScreen(
                                             .padding(vertical = 10.dp, horizontal = 12.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Icon(Icons.Default.PlaylistPlay, contentDescription = null, tint = if (alreadyIn) NeonCyan else TextSecondary)
+                                        Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = null, tint = if (alreadyIn) NeonCyan else TextSecondary)
                                         Spacer(modifier = Modifier.width(10.dp))
                                         Text(
                                             text = playlist.name,
@@ -428,7 +428,7 @@ fun MainScreen(
                         NavigationBarItem(
                             selected = currentTab == 1,
                             onClick = { viewModel.setCurrentTab(1) },
-                            icon = { Icon(Icons.Default.PlaylistPlay, contentDescription = "Listas") },
+                            icon = { Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = "Listas") },
                             label = { Text("Listas") },
                             colors = navBarColors()
                         )
@@ -629,9 +629,10 @@ fun MainScreen(
                             }
                             songsSubTab == 1 && selectedArtist == null -> {
                                 // Vista de agrupación por ARTISTAS
-                                val artists = allSongs.groupBy { it.artist }
+                                val artists = remember(allSongs) { allSongs.groupBy { it.artist } }
+                                val sortedArtists = remember(artists) { artists.keys.toList().sorted() }
                                 LazyColumn(modifier = Modifier.weight(1f)) {
-                                    items(artists.keys.toList().sorted(), key = { it }) { artistName ->
+                                    items(sortedArtists, key = { it }) { artistName ->
                                         val count = artists[artistName]?.size ?: 0
                                         Row(
                                             modifier = Modifier
@@ -655,9 +656,10 @@ fun MainScreen(
                             }
                             songsSubTab == 2 && selectedAlbum == null -> {
                                 // Vista de agrupación por ÁLBUMES
-                                val albums = allSongs.groupBy { it.album }
+                                val albums = remember(allSongs) { allSongs.groupBy { it.album } }
+                                val sortedAlbums = remember(albums) { albums.keys.toList().sorted() }
                                 LazyColumn(modifier = Modifier.weight(1f)) {
-                                    items(albums.keys.toList().sorted(), key = { it }) { albumName ->
+                                    items(sortedAlbums, key = { it }) { albumName ->
                                         val albumSongs = albums[albumName] ?: emptyList()
                                         Row(
                                             modifier = Modifier
@@ -681,9 +683,10 @@ fun MainScreen(
                             }
                             songsSubTab == 3 && selectedGenre == null -> {
                                 // Vista de agrupación por GÉNEROS
-                                val genres = allSongs.groupBy { it.genre.ifBlank { "Varios" } }
+                                val genres = remember(allSongs) { allSongs.groupBy { it.genre.ifBlank { "Varios" } } }
+                                val sortedGenres = remember(genres) { genres.keys.toList().sorted() }
                                 LazyColumn(modifier = Modifier.weight(1f)) {
-                                    items(genres.keys.toList().sorted(), key = { it }) { genreName ->
+                                    items(sortedGenres, key = { it }) { genreName ->
                                         val count = genres[genreName]?.size ?: 0
                                         Row(
                                             modifier = Modifier

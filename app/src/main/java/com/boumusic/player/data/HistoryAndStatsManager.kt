@@ -168,8 +168,7 @@ class HistoryAndStatsManager(private val context: Context) {
                 recordsArray.put(obj)
             }
             root.put("records", recordsArray)
-
-            historyFile.writeText(root.toString())
+            historyFile.writeText(root.toString(), Charsets.UTF_8)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -239,6 +238,9 @@ class HistoryAndStatsManager(private val context: Context) {
         )
         synchronized(recordsList) {
             recordsList.add(record)
+            if (recordsList.size > 5000) {
+                recordsList.removeAt(0)
+            }
         }
 
         updateFlows()
