@@ -62,6 +62,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -148,12 +149,14 @@ fun FtpScreen(
         )
     }
 
-    var name by remember { mutableStateOf("Mi Servidor FTP") }
+    var selectedProtocol by remember { mutableIntStateOf(0) } // 0 = FTP, 1 = FTPS, 2 = WebDAV
+    var name by remember { mutableStateOf("Mi Servidor") }
     var host by remember { mutableStateOf("192.168.1.100") }
     var port by remember { mutableStateOf("21") }
     var user by remember { mutableStateOf("anonymous") }
     var pass by remember { mutableStateOf("") }
     var isFtps by remember { mutableStateOf(false) }
+    var webDavPath by remember { mutableStateOf("/") }
 
     Column(
         modifier = modifier
@@ -170,7 +173,7 @@ fun FtpScreen(
             Icon(Icons.Default.Storage, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(28.dp))
             Spacer(modifier = Modifier.width(10.dp))
             Text(
-                text = "Servidor FTP & Streaming",
+                text = "Servidores & Red",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = TextPrimary
             )
@@ -219,19 +222,23 @@ fun FtpScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(cfg.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                        if (cfg.isFtps) {
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(4.dp))
-                                                    .background(NeonCyan.copy(alpha = 0.15f))
-                                                    .padding(horizontal = 5.dp, vertical = 1.dp)
-                                            ) {
-                                                Text("FTPS", color = NeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                            }
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        val badgeColor = when {
+                                            cfg.isWebDav -> ElectricPurple
+                                            cfg.isFtps -> NeonCyan
+                                            else -> TextSecondary
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(badgeColor.copy(alpha = 0.15f))
+                                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                                        ) {
+                                            Text(cfg.protocolLabel, color = badgeColor, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                         }
                                     }
-                                    Text("${cfg.host}:${cfg.port} (${cfg.username})", color = TextSecondary, fontSize = 12.sp)
+                                    val protoDetail = if (cfg.isWebDav) "${cfg.host}:${cfg.port}${cfg.webDavPath}" else "${cfg.host}:${cfg.port}"
+                                    Text("$protoDetail (${cfg.username})", color = TextSecondary, fontSize = 12.sp)
                                 }
                                 IconButton(
                                     onClick = { viewModel.deleteSavedFtpConfig(cfg.id) },
@@ -246,7 +253,7 @@ fun FtpScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
-                    // Formulario de conexión FTP
+                    // Formulario de conexión
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -255,10 +262,38 @@ fun FtpScreen(
                             .padding(20.dp)
                     ) {
                         Text(
-                            text = "Nueva Conexión FTP",
+                            text = "Añadir Nuevo Servidor",
                             style = MaterialTheme.typography.titleMedium,
                             color = TextPrimary
                         )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Selector de protocolo
+                        Text("PROTOCOLO DE RED", style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold), color = TextSecondary)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf("FTP" to 0, "FTPS (TLS)" to 1, "WebDAV" to 2).forEach { (label, protoIndex) ->
+                                FilterChip(
+                                    selected = selectedProtocol == protoIndex,
+                                    onClick = {
+                                        selectedProtocol = protoIndex
+                                        if (protoIndex == 2 && port == "21") port = "443"
+                                        if (protoIndex != 2 && (port == "443" || port == "80")) port = "21"
+                                    },
+                                    label = { Text(label, fontSize = 12.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = if (protoIndex == 2) ElectricPurple else NeonCyan,
+                                        selectedLabelColor = if (protoIndex == 2) TextPrimary else DarkSurface,
+                                        containerColor = DarkSurfaceVariant,
+                                        labelColor = TextSecondary
+                                    )
+                                )
+                            }
+                        }
+
                         Spacer(modifier = Modifier.height(14.dp))
 
                         OutlinedTextField(
@@ -276,7 +311,7 @@ fun FtpScreen(
                             OutlinedTextField(
                                 value = host,
                                 onValueChange = { host = it },
-                                label = { Text("Dirección IP / Host", color = TextSecondary) },
+                                label = { Text(if (selectedProtocol == 2) "Host / Dominio" else "Dirección IP / Host", color = TextSecondary) },
                                 singleLine = true,
                                 modifier = Modifier.weight(2f),
                                 colors = ftpTextFieldColors()
@@ -288,6 +323,18 @@ fun FtpScreen(
                                 label = { Text("Puerto", color = TextSecondary) },
                                 singleLine = true,
                                 modifier = Modifier.weight(1f),
+                                colors = ftpTextFieldColors()
+                            )
+                        }
+
+                        if (selectedProtocol == 2) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            OutlinedTextField(
+                                value = webDavPath,
+                                onValueChange = { webDavPath = it },
+                                label = { Text("Ruta WebDAV (ej: / o /remote.php/webdav/)", color = TextSecondary) },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth(),
                                 colors = ftpTextFieldColors()
                             )
                         }
@@ -315,34 +362,6 @@ fun FtpScreen(
                             colors = ftpTextFieldColors()
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Toggle de seguridad FTPS (TLS/SSL)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(DarkSurfaceVariant)
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Conexión segura FTPS (TLS)", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                                Text("Cifrado SSL/TLS de credenciales y datos", color = TextSecondary, fontSize = 11.sp)
-                            }
-                            Switch(
-                                checked = isFtps,
-                                onCheckedChange = { isFtps = it },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = NeonCyan,
-                                    checkedTrackColor = NeonCyan.copy(alpha = 0.3f),
-                                    uncheckedThumbColor = TextSecondary,
-                                    uncheckedTrackColor = DarkSurface
-                                )
-                            )
-                        }
-
                         if (errorMessage != null) {
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
@@ -356,14 +375,16 @@ fun FtpScreen(
 
                         Button(
                             onClick = {
-                                val parsedPort = port.toIntOrNull() ?: 21
+                                val parsedPort = port.toIntOrNull() ?: if (selectedProtocol == 2) 443 else 21
                                 val cfg = FtpConfig(
-                                    name = name.ifBlank { "Servidor FTP" },
+                                    name = name.ifBlank { if (selectedProtocol == 2) "Servidor WebDAV" else "Servidor FTP" },
                                     host = host.trim(),
                                     port = parsedPort,
                                     username = user.trim(),
                                     password = pass,
-                                    isFtps = isFtps
+                                    isFtps = (selectedProtocol == 1),
+                                    isWebDav = (selectedProtocol == 2),
+                                    webDavPath = if (webDavPath.isBlank()) "/" else webDavPath.trim()
                                 )
                                 viewModel.connectFtp(cfg)
                             },

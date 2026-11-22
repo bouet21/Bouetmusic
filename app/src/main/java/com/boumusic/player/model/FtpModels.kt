@@ -4,13 +4,22 @@ import java.util.UUID
 
 data class FtpConfig(
     val id: String = UUID.randomUUID().toString(),
-    val name: String = "Servidor FTP",
+    val name: String = "Servidor",
     val host: String = "",
     val port: Int = 21,
     val username: String = "anonymous",
     val password: String = "",
-    val isFtps: Boolean = false
-)
+    val isFtps: Boolean = false,
+    val isWebDav: Boolean = false,
+    val webDavPath: String = "/"
+) {
+    val protocolLabel: String
+        get() = when {
+            isWebDav -> "WebDAV"
+            isFtps -> "FTPS"
+            else -> "FTP"
+        }
+}
 
 data class FtpItem(
     val name: String,

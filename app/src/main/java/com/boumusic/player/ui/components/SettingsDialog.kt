@@ -1,6 +1,7 @@
 package com.boumusic.player.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,16 +12,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Leaderboard
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -28,6 +32,8 @@ import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,7 +42,9 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -66,6 +74,11 @@ fun SettingsDialog(
 ) {
     var transferPin by remember { mutableStateOf(viewModel.transferPin.value) }
     var autoSkipFtp by remember { mutableStateOf(true) }
+    var showExcludedFoldersDialog by remember { mutableStateOf(false) }
+
+    val excludedFolders by viewModel.excludedFolders.collectAsState()
+    val ignoreMessaging by viewModel.ignoreMessagingAudio.collectAsState()
+    val minDurationSec by viewModel.minDurationSeconds.collectAsState()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -115,8 +128,8 @@ fun SettingsDialog(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Salto inteligente FTP", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Text("Salta pistas remotas si el servidor está apagado", color = TextSecondary, fontSize = 11.sp)
+                        Text("Salto inteligente remoto", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Text("Salta pistas si el servidor FTP/WebDAV está apagado", color = TextSecondary, fontSize = 11.sp)
                     }
                     Switch(
                         checked = autoSkipFtp,
@@ -141,7 +154,7 @@ fun SettingsDialog(
                 ) {
                     Icon(Icons.Default.GraphicEq, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Abrir Ecualizador de Audio", color = NeonCyan, fontSize = 13.sp)
+                    Text("Ecualizador, Crossfade & Loudness", color = NeonCyan, fontSize = 13.sp)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -157,12 +170,76 @@ fun SettingsDialog(
                 ) {
                     Icon(Icons.Default.Leaderboard, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Ver Estadísticas y Resumen Trimestral", color = NeonCyan, fontSize = 13.sp)
+                    Text("Estadísticas y Resumen Trimestral", color = NeonCyan, fontSize = 13.sp)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Sección 2: Transferencia Wi-Fi y Seguridad
+                // Sección 2: Filtros de Biblioteca
+                SettingsSectionHeader("BIBLIOTECA & FILTROS DE CARPETAS", Icons.Default.FolderOff)
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(DarkSurfaceVariant)
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Ignorar audios de mensajería", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Text("Oculta audios de WhatsApp, Telegram, grabaciones...", color = TextSecondary, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = ignoreMessaging,
+                        onCheckedChange = { viewModel.setIgnoreMessagingAudio(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = NeonCyan,
+                            checkedTrackColor = NeonCyan.copy(alpha = 0.3f)
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text("Duración mínima de pista:", color = TextSecondary, fontSize = 12.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(3 to "3s", 15 to "15s", 30 to "30s", 60 to "1m").forEach { (sec, label) ->
+                        FilterChip(
+                            selected = minDurationSec == sec,
+                            onClick = { viewModel.setMinDurationSeconds(sec) },
+                            label = { Text(label, fontSize = 11.sp) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = ElectricPurple,
+                                selectedLabelColor = TextPrimary,
+                                containerColor = DarkSurfaceVariant,
+                                labelColor = TextSecondary
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = { showExcludedFoldersDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceVariant),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.FolderOff, contentDescription = null, tint = ElectricPurple, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Gestionar carpetas ignoradas (${excludedFolders.size})", color = TextPrimary, fontSize = 13.sp)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Sección 3: Transferencia Wi-Fi y Seguridad
                 SettingsSectionHeader("TRANSFERENCIA WI-FI & SEGURIDAD", Icons.Default.Wifi)
 
                 OutlinedTextField(
@@ -190,8 +267,8 @@ fun SettingsDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Sección 3: Biblioteca
-                SettingsSectionHeader("BIBLIOTECA LOCAL", Icons.Default.Refresh)
+                // Sección 4: Reescaneo manual
+                SettingsSectionHeader("REESCANEAR ARCHIVOS", Icons.Default.Refresh)
 
                 Button(
                     onClick = {
@@ -212,7 +289,7 @@ fun SettingsDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Sección 4: Acerca de
+                // Sección 5: Acerca de
                 SettingsSectionHeader("ACERCA DE BOUMUSIC", Icons.Default.Info)
                 Box(
                     modifier = Modifier
@@ -222,8 +299,8 @@ fun SettingsDialog(
                         .padding(14.dp)
                 ) {
                     Column {
-                        Text("Boumusic v1.7.0", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text("Reproductor de audio nativo con soporte FTP, streaming, ecualizador y transferencia sin cables.", color = TextSecondary, fontSize = 12.sp)
+                        Text("Boumusic v1.9.0", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("Reproductor de audio nativo con soporte FTP, WebDAV, streaming en red, ecualizador, crossfade y transferencia sin cables.", color = TextSecondary, fontSize = 12.sp)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text("100% libre, sin publicidad ni rastreadores.", color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     }
@@ -240,6 +317,59 @@ fun SettingsDialog(
             }
         }
     )
+
+    if (showExcludedFoldersDialog) {
+        AlertDialog(
+            onDismissRequest = { showExcludedFoldersDialog = false },
+            containerColor = DarkSurface,
+            shape = RoundedCornerShape(20.dp),
+            title = {
+                Text("Carpetas Excluidas", color = TextPrimary, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                if (excludedFolders.isEmpty()) {
+                    Text(
+                        "No hay carpetas excluidas manualmente.\nPuedes excluir carpetas manteniendo presionada una canción o desde su menú de opciones.",
+                        color = TextSecondary,
+                        fontSize = 13.sp
+                    )
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                        items(excludedFolders.toList()) { folderPath ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(DarkSurfaceVariant)
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = folderPath,
+                                    color = TextPrimary,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = { viewModel.removeExcludedFolder(folderPath) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Restaurar", tint = TextSecondary)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showExcludedFoldersDialog = false }) {
+                    Text("Cerrar", color = NeonCyan)
+                }
+            }
+        )
+    }
 }
 
 @Composable

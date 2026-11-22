@@ -3,6 +3,7 @@ package com.boumusic.player.audio
 import android.content.Context
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
+import android.media.audiofx.LoudnessEnhancer
 
 data class EqualizerBand(
     val bandIndex: Short,
@@ -13,19 +14,28 @@ data class EqualizerBand(
 )
 
 class EqualizerManager(private val context: Context) {
+    private val prefs = context.getSharedPreferences("boumusic_audio_prefs", Context.MODE_PRIVATE)
+
     private var equalizer: Equalizer? = null
     private var bassBoost: BassBoost? = null
+    private var loudnessEnhancer: LoudnessEnhancer? = null
 
-    var isEnabled: Boolean = true
+    var isEnabled: Boolean = prefs.getBoolean("eq_enabled", true)
         private set
 
     var isSupported: Boolean = false
         private set
 
-    var currentPresetIndex: Short = -1
+    var currentPresetIndex: Short = prefs.getInt("current_preset", -1).toShort()
         private set
 
-    var bassStrength: Short = 0
+    var bassStrength: Short = prefs.getInt("bass_strength", 0).toShort()
+        private set
+
+    var isLoudnessEnabled: Boolean = prefs.getBoolean("loudness_enabled", false)
+        private set
+
+    var loudnessGainMb: Int = prefs.getInt("loudness_gain", 600)
         private set
 
     private val fallbackPresets = listOf(
@@ -47,6 +57,11 @@ class EqualizerManager(private val context: Context) {
             try {
                 equalizer = Equalizer(0, audioSessionId).apply {
                     enabled = isEnabled
+                    if (currentPresetIndex >= 0 && currentPresetIndex < numberOfPresets) {
+                        try {
+                            usePreset(currentPresetIndex)
+                        } catch (ignored: Throwable) {}
+                    }
                 }
                 isSupported = true
             } catch (e: Throwable) {
@@ -64,6 +79,15 @@ class EqualizerManager(private val context: Context) {
             } catch (e: Throwable) {
                 bassBoost = null
             }
+
+            try {
+                loudnessEnhancer = LoudnessEnhancer(audioSessionId).apply {
+                    enabled = isLoudnessEnabled
+                    setTargetGain(loudnessGainMb)
+                }
+            } catch (e: Throwable) {
+                loudnessEnhancer = null
+            }
         } catch (e: Throwable) {
             isSupported = false
         }
@@ -71,9 +95,30 @@ class EqualizerManager(private val context: Context) {
 
     fun setEnabled(enabled: Boolean) {
         isEnabled = enabled
+        prefs.edit().putBoolean("eq_enabled", enabled).apply()
         try {
             equalizer?.enabled = enabled
             bassBoost?.enabled = enabled
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
+    }
+
+    fun setLoudnessEnabled(enabled: Boolean) {
+        isLoudnessEnabled = enabled
+        prefs.edit().putBoolean("loudness_enabled", enabled).apply()
+        try {
+            loudnessEnhancer?.enabled = enabled
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
+    }
+
+    fun setLoudnessGain(gainMb: Int) {
+        loudnessGainMb = gainMb.coerceIn(0, 2000)
+        prefs.edit().putInt("loudness_gain", loudnessGainMb).apply()
+        try {
+            loudnessEnhancer?.setTargetGain(loudnessGainMb)
         } catch (e: Throwable) {
             e.printStackTrace()
         }
@@ -104,6 +149,7 @@ class EqualizerManager(private val context: Context) {
         try {
             equalizer?.setBandLevel(band, level)
             currentPresetIndex = -1
+            prefs.edit().putInt("current_preset", -1).apply()
         } catch (e: Throwable) {
             e.printStackTrace()
         }
@@ -122,7 +168,6 @@ class EqualizerManager(private val context: Context) {
                             list.add(name)
                         }
                     } catch (e: Throwable) {
-                        // Algunos OEM lanzan excepción al consultar presets
                         break
                     }
                 }
@@ -137,6 +182,7 @@ class EqualizerManager(private val context: Context) {
         try {
             equalizer?.usePreset(presetIndex)
             currentPresetIndex = presetIndex
+            prefs.edit().putInt("current_preset", presetIndex.toInt()).apply()
         } catch (e: Throwable) {
             e.printStackTrace()
         }
@@ -144,6 +190,7 @@ class EqualizerManager(private val context: Context) {
 
     fun setBassBoostStrength(strength: Short) {
         bassStrength = strength.coerceIn(0, 1000)
+        prefs.edit().putInt("bass_strength", bassStrength.toInt()).apply()
         try {
             if (bassBoost?.strengthSupported == true) {
                 bassBoost?.setStrength(bassStrength)
@@ -162,5 +209,9 @@ class EqualizerManager(private val context: Context) {
             bassBoost?.release()
         } catch (ignored: Throwable) {}
         bassBoost = null
+        try {
+            loudnessEnhancer?.release()
+        } catch (ignored: Throwable) {}
+        loudnessEnhancer = null
     }
 }

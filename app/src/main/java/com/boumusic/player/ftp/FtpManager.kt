@@ -3,6 +3,7 @@ package com.boumusic.player.ftp
 import android.content.Context
 import com.boumusic.player.model.FtpConfig
 import com.boumusic.player.model.FtpItem
+import com.boumusic.player.webdav.WebDavManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
@@ -20,6 +21,7 @@ import kotlin.coroutines.coroutineContext
 class FtpManager(private val context: Context? = null) {
 
     private var activeConfig: FtpConfig? = null
+    val webDavManager = WebDavManager(context)
 
     val isConnected: Boolean
         get() = activeConfig != null
@@ -51,7 +53,9 @@ class FtpManager(private val context: Context? = null) {
                         port = o.optInt("port", 21),
                         username = o.optString("username", "anonymous"),
                         password = o.optString("password", ""),
-                        isFtps = o.optBoolean("isFtps", false)
+                        isFtps = o.optBoolean("isFtps", false),
+                        isWebDav = o.optBoolean("isWebDav", false),
+                        webDavPath = o.optString("webDavPath", "/")
                     )
                 )
             }
@@ -77,6 +81,8 @@ class FtpManager(private val context: Context? = null) {
                 o.put("username", c.username)
                 o.put("password", c.password)
                 o.put("isFtps", c.isFtps)
+                o.put("isWebDav", c.isWebDav)
+                o.put("webDavPath", c.webDavPath)
                 arr.put(o)
             }
             file.writeText(arr.toString(2), Charsets.UTF_8)
@@ -99,6 +105,8 @@ class FtpManager(private val context: Context? = null) {
                 o.put("username", c.username)
                 o.put("password", c.password)
                 o.put("isFtps", c.isFtps)
+                o.put("isWebDav", c.isWebDav)
+                o.put("webDavPath", c.webDavPath)
                 arr.put(o)
             }
             file.writeText(arr.toString(2), Charsets.UTF_8)
@@ -130,6 +138,17 @@ class FtpManager(private val context: Context? = null) {
     }
 
     suspend fun connect(config: FtpConfig): Result<Boolean> = withContext(Dispatchers.IO) {
+        if (config.isWebDav) {
+            val res = webDavManager.testConnection(config)
+            return@withContext if (res.isSuccess) {
+                activeConfig = config
+                saveConfig(config)
+                Result.success(true)
+            } else {
+                Result.failure(res.exceptionOrNull() ?: Exception("No se pudo conectar a WebDAV"))
+            }
+        }
+
         val client = createFtpClient(config)
         try {
             client.connectTimeout = 10000
@@ -163,7 +182,16 @@ class FtpManager(private val context: Context? = null) {
     }
 
     suspend fun listFiles(path: String): Result<List<FtpItem>> = withContext(Dispatchers.IO) {
-        val config = activeConfig ?: return@withContext Result.failure(Exception("No hay servidor FTP configurado"))
+        val config = activeConfig ?: return@withContext Result.failure(Exception("No hay servidor configurado"))
+        if (config.isWebDav) {
+            return@withContext try {
+                val list = webDavManager.listFiles(config, path)
+                Result.success(list)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
         val client = createFtpClient(config)
         try {
             client.connectTimeout = 10000
@@ -195,10 +223,6 @@ class FtpManager(private val context: Context? = null) {
         }
     }
 
-    /**
-     * Búsqueda recursiva (BFS) de canciones en el servidor FTP.
-     * Explora subcarpetas y emite los resultados encontrados en tiempo real.
-     */
     suspend fun searchSongs(
         query: String,
         startPath: String = "/",
@@ -206,7 +230,37 @@ class FtpManager(private val context: Context? = null) {
         maxDepth: Int = 10,
         onFoundBatch: ((List<FtpItem>) -> Unit)? = null
     ): Result<List<FtpItem>> = withContext(Dispatchers.IO) {
-        val config = activeConfig ?: return@withContext Result.failure(Exception("No hay servidor FTP configurado"))
+        val config = activeConfig ?: return@withContext Result.failure(Exception("No hay servidor configurado"))
+        val results = mutableListOf<FtpItem>()
+        val queue = ArrayDeque<Pair<String, Int>>()
+        queue.add(Pair(if (startPath.isBlank()) "/" else startPath, 0))
+        val lowerQuery = query.lowercase().trim()
+
+        if (config.isWebDav) {
+            while (queue.isNotEmpty() && results.size < maxResults && coroutineContext.isActive) {
+                val (currentDir, depth) = queue.removeFirst()
+                if (depth > maxDepth) continue
+                val items = try {
+                    webDavManager.listFiles(config, currentDir)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+
+                var hasNewMatch = false
+                for (item in items) {
+                    if (!coroutineContext.isActive || results.size >= maxResults) break
+                    if (item.isDirectory) {
+                        if (depth < maxDepth) queue.add(Pair(item.path, depth + 1))
+                    } else if (item.isAudio && item.name.lowercase().contains(lowerQuery)) {
+                        results.add(item)
+                        hasNewMatch = true
+                    }
+                }
+                if (hasNewMatch) onFoundBatch?.invoke(results.toList())
+            }
+            return@withContext Result.success(results)
+        }
+
         val client = createFtpClient(config)
         try {
             client.connectTimeout = 10000
@@ -216,12 +270,6 @@ class FtpManager(private val context: Context? = null) {
             configurePostLogin(client)
             client.enterLocalPassiveMode()
             client.setFileType(FTP.BINARY_FILE_TYPE)
-
-            val results = mutableListOf<FtpItem>()
-            val queue = ArrayDeque<Pair<String, Int>>()
-            queue.add(Pair(if (startPath.isBlank()) "/" else startPath, 0))
-
-            val lowerQuery = query.lowercase().trim()
 
             while (queue.isNotEmpty() && results.size < maxResults && coroutineContext.isActive) {
                 val (currentDir, depth) = queue.removeFirst()
@@ -260,31 +308,55 @@ class FtpManager(private val context: Context? = null) {
                 }
             }
 
-            try {
-                client.disconnect()
-            } catch (ignored: Exception) {}
-
+            try { client.disconnect() } catch (ignored: Exception) {}
             Result.success(results)
         } catch (e: Exception) {
-            try {
-                client.disconnect()
-            } catch (ignored: Exception) {}
+            try { client.disconnect() } catch (ignored: Exception) {}
             Result.failure(e)
         }
     }
 
-    /**
-     * Escaneo recursivo (BFS) de todos los archivos de audio bajo [startPath].
-     * Recorre carpetas por niveles y emite el progreso parcial para feedback en UI.
-     * Retorna la lista ordenada por carpetas y nombres de archivo para reproducción continua secuencial.
-     */
     suspend fun listAllAudioFilesRecursively(
         startPath: String = "/",
         maxResults: Int = 3000,
         maxDepth: Int = 10,
         onProgress: ((Int) -> Unit)? = null
     ): Result<List<FtpItem>> = withContext(Dispatchers.IO) {
-        val config = activeConfig ?: return@withContext Result.failure(Exception("No hay servidor FTP configurado"))
+        val config = activeConfig ?: return@withContext Result.failure(Exception("No hay servidor configurado"))
+        val results = mutableListOf<FtpItem>()
+        val queue = ArrayDeque<Pair<String, Int>>()
+        val rootPath = if (startPath.isBlank()) "/" else startPath
+        queue.add(Pair(rootPath, 0))
+
+        if (config.isWebDav) {
+            while (queue.isNotEmpty() && results.size < maxResults && coroutineContext.isActive) {
+                val (currentDir, depth) = queue.removeFirst()
+                if (depth > maxDepth) continue
+                val items = try {
+                    webDavManager.listFiles(config, currentDir)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+
+                val countBefore = results.size
+                for (item in items) {
+                    if (!coroutineContext.isActive || results.size >= maxResults) break
+                    if (item.isDirectory) {
+                        if (depth < maxDepth) queue.add(Pair(item.path, depth + 1))
+                    } else if (item.isAudio) {
+                        results.add(item)
+                    }
+                }
+                if (results.size > countBefore) {
+                    onProgress?.invoke(results.size)
+                }
+            }
+            val sorted = results.sortedWith(
+                compareBy({ it.path.substringBeforeLast("/") }, { it.name.lowercase() })
+            )
+            return@withContext Result.success(sorted)
+        }
+
         val client = createFtpClient(config)
         try {
             client.connectTimeout = 10000
@@ -294,11 +366,6 @@ class FtpManager(private val context: Context? = null) {
             configurePostLogin(client)
             client.enterLocalPassiveMode()
             client.setFileType(FTP.BINARY_FILE_TYPE)
-
-            val results = mutableListOf<FtpItem>()
-            val queue = ArrayDeque<Pair<String, Int>>()
-            val rootPath = if (startPath.isBlank()) "/" else startPath
-            queue.add(Pair(rootPath, 0))
 
             while (queue.isNotEmpty() && results.size < maxResults && coroutineContext.isActive) {
                 val (currentDir, depth) = queue.removeFirst()
@@ -335,25 +402,20 @@ class FtpManager(private val context: Context? = null) {
                 }
             }
 
-            try {
-                client.disconnect()
-            } catch (ignored: Exception) {}
-
-            // Ordenar por ruta de carpeta y luego por nombre para mantener canciones de cada carpeta juntas
+            try { client.disconnect() } catch (ignored: Exception) {}
             val sorted = results.sortedWith(
                 compareBy({ it.path.substringBeforeLast("/") }, { it.name.lowercase() })
             )
             Result.success(sorted)
         } catch (e: Exception) {
-            try {
-                client.disconnect()
-            } catch (ignored: Exception) {}
+            try { client.disconnect() } catch (ignored: Exception) {}
             Result.failure(e)
         }
     }
 
     fun openNewClient(): FTPClient? {
         val config = activeConfig ?: return null
+        if (config.isWebDav) return null
         return try {
             val client = createFtpClient(config)
             client.connectTimeout = 10000
@@ -370,8 +432,20 @@ class FtpManager(private val context: Context? = null) {
         }
     }
 
+    fun openWebDavStream(remotePath: String, offset: Long = 0L): InputStream? {
+        val config = activeConfig ?: return null
+        return webDavManager.openAudioStream(config, remotePath, offset)
+    }
+
     suspend fun downloadSong(remotePath: String, destFile: File, onProgress: (Int) -> Unit): Result<Boolean> = withContext(Dispatchers.IO) {
-        val config = activeConfig ?: return@withContext Result.failure(Exception("No conectado a FTP"))
+        val config = activeConfig ?: return@withContext Result.failure(Exception("No conectado a servidor"))
+        if (config.isWebDav) {
+            val success = webDavManager.downloadFile(config, remotePath, destFile) { progress ->
+                onProgress((progress * 100).toInt())
+            }
+            return@withContext if (success) Result.success(true) else Result.failure(Exception("Error al descargar archivo de WebDAV"))
+        }
+
         val client = createFtpClient(config)
         try {
             client.connect(config.host, config.port)

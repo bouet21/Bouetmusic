@@ -12,8 +12,8 @@ android {
         applicationId = "com.boumusic.player"
         minSdk = 24
         targetSdk = 34
-        versionCode = 14
-        versionName = "1.8.3"
+        versionCode = 15
+        versionName = "1.9.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -79,6 +79,9 @@ dependencies {
 
     // ZXing para generación y codificación de códigos QR
     implementation("com.google.zxing:core:3.5.3")
+
+    // OkHttp para WebDAV y descargas HTTP/HTTPS
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

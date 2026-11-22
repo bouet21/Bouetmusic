@@ -11,6 +11,40 @@ import kotlinx.coroutines.withContext
 
 class MusicRepository(private val context: Context) {
 
+    private val libraryPrefs = context.getSharedPreferences("boumusic_library_prefs", Context.MODE_PRIVATE)
+
+    fun getExcludedFolders(): Set<String> {
+        return libraryPrefs.getStringSet("excluded_folders", emptySet()) ?: emptySet()
+    }
+
+    fun addExcludedFolder(folderPath: String) {
+        val current = getExcludedFolders().toMutableSet()
+        current.add(folderPath)
+        libraryPrefs.edit().putStringSet("excluded_folders", current).apply()
+    }
+
+    fun removeExcludedFolder(folderPath: String) {
+        val current = getExcludedFolders().toMutableSet()
+        current.remove(folderPath)
+        libraryPrefs.edit().putStringSet("excluded_folders", current).apply()
+    }
+
+    fun isMessagingIgnored(): Boolean {
+        return libraryPrefs.getBoolean("ignore_messaging_audio", true)
+    }
+
+    fun setMessagingIgnored(ignore: Boolean) {
+        libraryPrefs.edit().putBoolean("ignore_messaging_audio", ignore).apply()
+    }
+
+    fun getMinDurationSeconds(): Int {
+        return libraryPrefs.getInt("min_duration_seconds", 15)
+    }
+
+    fun setMinDurationSeconds(sec: Int) {
+        libraryPrefs.edit().putInt("min_duration_seconds", sec).apply()
+    }
+
     suspend fun getLocalSongs(): List<Song> = withContext(Dispatchers.IO) {
         val songList = mutableListOf<Song>()
 
@@ -43,8 +77,13 @@ class MusicRepository(private val context: Context) {
             )
         }
 
-        // Filtrar archivos que sean identificados como música y con al menos 5 segundos de duración
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 5000"
+        val ignoreMessaging = isMessagingIgnored()
+        val minDurationMs = (getMinDurationSeconds() * 1000L).coerceAtLeast(3000L)
+        val excludedFolders = getExcludedFolders()
+        val messagingRegex = Regex("(?i).*(whatsapp|telegram|signal|viber|recordings?|voicenotes?|call_recorders?|notifications?|ringtones?|alarms?).*")
+
+        // Filtrar archivos marcados como música con al menos 3 segundos mínimos a nivel de query MediaStore
+        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= 3000"
         val sortOrder = "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
 
         try {
@@ -77,12 +116,23 @@ class MusicRepository(private val context: Context) {
                 val mediaExternalUri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
 
                 while (it.moveToNext()) {
+                    val duration = it.getLong(durationCol)
+                    if (duration < minDurationMs) continue
+
+                    val dataPath = it.getString(dataCol) ?: ""
+                    if (ignoreMessaging && dataPath.matches(messagingRegex)) continue
+
+                    if (excludedFolders.isNotEmpty()) {
+                        val isExcluded = excludedFolders.any { excluded ->
+                            dataPath.startsWith(excluded, ignoreCase = true)
+                        }
+                        if (isExcluded) continue
+                    }
+
                     val id = it.getLong(idCol)
                     val rawTitle = it.getString(titleCol) ?: "Pista desconocida"
                     val rawArtist = it.getString(artistCol) ?: "Artista desconocido"
                     val rawAlbum = it.getString(albumCol) ?: "Álbum desconocido"
-                    val duration = it.getLong(durationCol)
-                    val dataPath = it.getString(dataCol) ?: ""
                     val albumId = it.getLong(albumIdCol)
                     val rawGenre = if (genreCol != -1) it.getString(genreCol) else null
                     val genre = if (rawGenre.isNullOrBlank() || rawGenre == "<unknown>") "Varios" else rawGenre

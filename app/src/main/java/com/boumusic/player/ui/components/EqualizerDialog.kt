@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -58,6 +59,8 @@ import com.boumusic.player.ui.theme.TextSecondary
 @Composable
 fun EqualizerDialog(
     equalizerManager: EqualizerManager,
+    crossfadeSeconds: Int = 3,
+    onCrossfadeChange: (Int) -> Unit = {},
     onDismiss: () -> Unit
 ) {
     var isEnabled by remember { mutableStateOf(equalizerManager.isEnabled) }
@@ -65,6 +68,9 @@ fun EqualizerDialog(
     var selectedPresetIndex by remember { mutableIntStateOf(equalizerManager.currentPresetIndex.toInt()) }
     var bassStrength by remember { mutableFloatStateOf(equalizerManager.bassStrength.toFloat()) }
     var bands by remember { mutableStateOf(equalizerManager.getBands()) }
+    var isLoudnessEnabled by remember { mutableStateOf(equalizerManager.isLoudnessEnabled) }
+    var loudnessGain by remember { mutableFloatStateOf(equalizerManager.loudnessGainMb.toFloat()) }
+    var crossfadeVal by remember { mutableIntStateOf(crossfadeSeconds) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -101,7 +107,7 @@ fun EqualizerDialog(
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
             ) {
-                // Interruptor Activar / Desactivar
+                // Interruptor Activar / Desactivar Ecualizador
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -179,7 +185,7 @@ fun EqualizerDialog(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        bands.forEachIndexed { i, band ->
+                        bands.forEachIndexed { _, band ->
                             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -242,6 +248,100 @@ fun EqualizerDialog(
                         )
                     )
                 }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Normalización de volumen (Loudness Enhancer / ReplayGain)
+                Text(
+                    text = "NORMALIZACIÓN DE VOLUMEN (LOUDNESS)",
+                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold),
+                    color = TextSecondary
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(DarkSurfaceVariant)
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Nivelar volumen (Anti-sustos)", color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Text("Evita saltos bruscos de volumen entre canciones", color = TextSecondary, fontSize = 11.sp)
+                    }
+                    Switch(
+                        checked = isLoudnessEnabled,
+                        onCheckedChange = {
+                            isLoudnessEnabled = it
+                            equalizerManager.setLoudnessEnabled(it)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = NeonCyan,
+                            checkedTrackColor = NeonCyan.copy(alpha = 0.3f),
+                            uncheckedThumbColor = TextSecondary,
+                            uncheckedTrackColor = DarkSurface
+                        )
+                    )
+                }
+
+                if (isLoudnessEnabled) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Realce de volumen", color = NeonCyan, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text(String.format("+%.1f dB", loudnessGain / 100.0f), color = TextSecondary, fontSize = 12.sp)
+                    }
+                    Slider(
+                        value = loudnessGain,
+                        onValueChange = {
+                            loudnessGain = it
+                            equalizerManager.setLoudnessGain(it.toInt())
+                        },
+                        valueRange = 0f..1500f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = NeonCyan,
+                            activeTrackColor = NeonCyan,
+                            inactiveTrackColor = DarkSurfaceVariant
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Crossfade (Fundido entre canciones)
+                Text(
+                    text = "FUNDIDO CRUZADO (CROSSFADE)",
+                    style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold),
+                    color = TextSecondary
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Transición entre canciones", color = ElectricPurple, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (crossfadeVal == 0) "Desactivado" else "${crossfadeVal} segundos", color = TextSecondary, fontSize = 12.sp)
+                }
+                Slider(
+                    value = crossfadeVal.toFloat(),
+                    onValueChange = {
+                        crossfadeVal = it.toInt()
+                        onCrossfadeChange(crossfadeVal)
+                    },
+                    valueRange = 0f..10f,
+                    steps = 9,
+                    colors = SliderDefaults.colors(
+                        thumbColor = ElectricPurple,
+                        activeTrackColor = ElectricPurple,
+                        inactiveTrackColor = DarkSurfaceVariant
+                    )
+                )
             }
         },
         confirmButton = {

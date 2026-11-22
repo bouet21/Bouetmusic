@@ -14,11 +14,27 @@
     <string name="add_to_playlist">Añadir a lista</string>
     <string name="tab_songs">Canciones</string>
     <string name="tab_playlists">Listas</string>
+    <string name="tab_servers">Servidores</string>
     <string name="tab_ftp">Servidor FTP</string>
     <string name="all_songs">Todas</string>
     <string name="artists">Artistas</string>
     <string name="albums">Álbumes</string>
+    <string name="genres">Géneros</string>
+    <string name="history">Historial</string>
     <string name="share_qr">Compartir con QR</string>
     <string name="share_song">Compartir canción</string>
     <string name="share_playlist">Compartir lista</string>
+    <string name="settings">Ajustes</string>
+    <string name="equalizer">Ecualizador &amp; Audio</string>
+    <string name="crossfade">Fundido cruzado (Crossfade)</string>
+    <string name="loudness_normalization">Normalización de volumen (Loudness)</string>
+    <string name="exclude_folder">Excluir esta carpeta de la biblioteca</string>
+    <string name="excluded_folders">Carpetas Excluidas</string>
+    <string name="ignore_messaging">Ignorar audios de mensajería (WhatsApp, Telegram...)</string>
+    <string name="min_duration">Duración mínima de pista</string>
+    <string name="webdav_support">Soporte WebDAV y FTP</string>
+    <string name="stats_quarterly">Estadísticas y Resumen Trimestral</string>
+    <string name="close">Cerrar</string>
+    <string name="done">Listo</string>
+    <string name="cancel">Cancelar</string>
 </resources>

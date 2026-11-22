@@ -62,7 +62,8 @@ class FtpStreamBridge(
 
     private fun handleStreamingRequest(socket: Socket) {
         socket.soTimeout = 45000
-        var ftpClient = ftpManager.openNewClient()
+        val isWebDav = ftpManager.currentConfig?.isWebDav == true
+        var ftpClient: org.apache.commons.net.ftp.FTPClient? = if (!isWebDav) ftpManager.openNewClient() else null
         var ftpStream: InputStream? = null
 
         try {
@@ -102,7 +103,7 @@ class FtpStreamBridge(
                 }
             }
 
-            if (remotePath.isBlank() || ftpClient == null) {
+            if (remotePath.isBlank()) {
                 sendNotFound(output)
                 return
             }
@@ -113,12 +114,21 @@ class FtpStreamBridge(
             if (rangeHeader != null && rangeHeader.startsWith("bytes=")) {
                 val byteRange = rangeHeader.substringAfter("bytes=").substringBefore("-")
                 startByte = byteRange.toLongOrNull() ?: 0L
+            }
+
+            if (isWebDav) {
+                ftpStream = ftpManager.openWebDavStream(remotePath, startByte)
+            } else {
+                if (ftpClient == null) {
+                    sendNotFound(output)
+                    return
+                }
                 if (startByte > 0) {
                     ftpClient.restartOffset = startByte
                 }
+                ftpStream = ftpClient.retrieveFileStream(remotePath)
             }
 
-            ftpStream = ftpClient.retrieveFileStream(remotePath)
             if (ftpStream == null) {
                 sendNotFound(output)
                 return

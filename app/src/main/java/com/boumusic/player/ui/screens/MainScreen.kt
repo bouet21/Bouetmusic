@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
@@ -136,6 +137,7 @@ fun MainScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val shareOptionsTarget by viewModel.shareOptionsTarget.collectAsState()
     val shareTarget by viewModel.shareTarget.collectAsState()
+    val crossfadeSeconds by viewModel.crossfadeSeconds.collectAsState()
 
     var songForOptionsMenu by remember { mutableStateOf<Song?>(null) }
     var showCreatePlaylistInDialog by remember { mutableStateOf(false) }
@@ -166,6 +168,8 @@ fun MainScreen(
     if (showEqualizerDialog) {
         EqualizerDialog(
             equalizerManager = viewModel.equalizerManager,
+            crossfadeSeconds = crossfadeSeconds,
+            onCrossfadeChange = { viewModel.setCrossfadeSeconds(it) },
             onDismiss = { showEqualizerDialog = false }
         )
     }
@@ -283,6 +287,24 @@ fun MainScreen(
                         Icon(Icons.Default.Share, contentDescription = null, tint = NeonCyan)
                         Spacer(modifier = Modifier.width(12.dp))
                         Text("Compartir canción (Bluetooth o QR)", color = TextPrimary, fontWeight = FontWeight.Medium)
+                    }
+
+                    if (!s.isFtp && s.dataPath.isNotBlank()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    viewModel.excludeFolderOfSong(s)
+                                    songForOptionsMenu = null
+                                }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.FolderOff, contentDescription = null, tint = TextSecondary)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text("Excluir esta carpeta de la biblioteca", color = TextSecondary, fontWeight = FontWeight.Medium)
+                        }
                     }
                 }
             },
@@ -435,8 +457,8 @@ fun MainScreen(
                         NavigationBarItem(
                             selected = currentTab == 2,
                             onClick = { viewModel.setCurrentTab(2) },
-                            icon = { Icon(Icons.Default.Storage, contentDescription = "Servidor FTP") },
-                            label = { Text("Servidor FTP") },
+                            icon = { Icon(Icons.Default.Storage, contentDescription = "Servidores") },
+                            label = { Text("Servidores") },
                             colors = navBarColors()
                         )
                     }

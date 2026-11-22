@@ -260,6 +260,24 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _shareTarget = MutableStateFlow<ShareTarget?>(null)
     val shareTarget: StateFlow<ShareTarget?> = _shareTarget.asStateFlow()
 
+    // Filtros de biblioteca y carpetas excluidas
+    private val _excludedFolders = MutableStateFlow(repository.getExcludedFolders())
+    val excludedFolders: StateFlow<Set<String>> = _excludedFolders.asStateFlow()
+
+    private val _ignoreMessagingAudio = MutableStateFlow(repository.isMessagingIgnored())
+    val ignoreMessagingAudio: StateFlow<Boolean> = _ignoreMessagingAudio.asStateFlow()
+
+    private val _minDurationSeconds = MutableStateFlow(repository.getMinDurationSeconds())
+    val minDurationSeconds: StateFlow<Int> = _minDurationSeconds.asStateFlow()
+
+    // Crossfade (Fundido cruzado)
+    private val audioPrefs = application.getSharedPreferences("boumusic_audio_prefs", Context.MODE_PRIVATE)
+    private val _crossfadeSeconds = MutableStateFlow(audioPrefs.getInt("crossfade_seconds", 3))
+    val crossfadeSeconds: StateFlow<Int> = _crossfadeSeconds.asStateFlow()
+
+    private var fadeInJob: Job? = null
+    private var isFadingIn: Boolean = false
+
     private var mediaController: MediaController? = null
     private var progressJob: Job? = null
 
@@ -310,6 +328,12 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
                 if (found != null) {
                     historyManager.recordSongPlayStart(found)
+                }
+
+                if (_crossfadeSeconds.value > 0) {
+                    startFadeIn(_crossfadeSeconds.value)
+                } else {
+                    mediaController?.volume = 1.0f
                 }
 
                 // Si es una canción remota FTP y no estamos conectados al servidor FTP
@@ -1232,6 +1256,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun skipNext() {
+        fadeInJob?.cancel()
+        isFadingIn = false
+        mediaController?.volume = 1.0f
         mediaController?.let {
             if (it.hasNextMediaItem()) {
                 it.seekToNextMediaItem()
@@ -1245,6 +1272,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun skipPrevious() {
+        fadeInJob?.cancel()
+        isFadingIn = false
+        mediaController?.volume = 1.0f
         mediaController?.let {
             if (it.currentPosition > 3000) {
                 it.seekTo(0)
@@ -1257,8 +1287,85 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun seekTo(positionMs: Long) {
+        fadeInJob?.cancel()
+        isFadingIn = false
+        mediaController?.volume = 1.0f
         mediaController?.seekTo(positionMs)
         _currentPosition.value = positionMs
+    }
+
+    fun setCrossfadeSeconds(seconds: Int) {
+        val clamped = seconds.coerceIn(0, 10)
+        _crossfadeSeconds.value = clamped
+        audioPrefs.edit().putInt("crossfade_seconds", clamped).apply()
+        if (clamped == 0) {
+            mediaController?.volume = 1.0f
+        }
+    }
+
+    private fun startFadeIn(seconds: Int) {
+        fadeInJob?.cancel()
+        if (seconds <= 0) {
+            mediaController?.volume = 1.0f
+            return
+        }
+        fadeInJob = viewModelScope.launch {
+            isFadingIn = true
+            val controller = mediaController
+            if (controller != null) {
+                controller.volume = 0.05f
+                val steps = 20
+                val stepDelay = (seconds * 1000L) / steps
+                for (i in 1..steps) {
+                    delay(stepDelay)
+                    if (!isActive || !isFadingIn) break
+                    controller.volume = (i.toFloat() / steps).coerceIn(0.05f, 1.0f)
+                }
+                controller.volume = 1.0f
+            }
+            isFadingIn = false
+        }
+    }
+
+    fun addExcludedFolder(path: String) {
+        repository.addExcludedFolder(path)
+        _excludedFolders.value = repository.getExcludedFolders()
+        loadSongs()
+    }
+
+    fun removeExcludedFolder(path: String) {
+        repository.removeExcludedFolder(path)
+        _excludedFolders.value = repository.getExcludedFolders()
+        loadSongs()
+    }
+
+    fun setIgnoreMessagingAudio(ignore: Boolean) {
+        repository.setMessagingIgnored(ignore)
+        _ignoreMessagingAudio.value = ignore
+        loadSongs()
+    }
+
+    fun setMinDurationSeconds(sec: Int) {
+        repository.setMinDurationSeconds(sec)
+        _minDurationSeconds.value = sec
+        loadSongs()
+    }
+
+    fun excludeFolderOfSong(song: Song) {
+        val path = song.dataPath
+        if (path.isNotBlank()) {
+            val parent = java.io.File(path).parent
+            if (!parent.isNullOrBlank()) {
+                addExcludedFolder(parent)
+                viewModelScope.launch(Dispatchers.Main) {
+                    Toast.makeText(
+                        getApplication(),
+                        "Carpeta excluida: $parent",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
     }
 
     fun toggleShuffle() {
@@ -1292,7 +1399,23 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             while (isActive) {
                 mediaController?.let { controller ->
                     if (controller.isPlaying) {
-                        _currentPosition.value = controller.currentPosition.coerceAtLeast(0L)
+                        val pos = controller.currentPosition.coerceAtLeast(0L)
+                        val dur = controller.duration.coerceAtLeast(0L)
+                        _currentPosition.value = pos
+
+                        // Crossfade fade-out al aproximarse el final de la canción
+                        val cfSec = _crossfadeSeconds.value
+                        if (cfSec > 0 && dur > cfSec * 2000L && !isFadingIn) {
+                            val cfMs = cfSec * 1000L
+                            val remainingMs = dur - pos
+                            if (remainingMs in 1..cfMs) {
+                                val factor = (remainingMs.toFloat() / cfMs).coerceIn(0.05f, 1.0f)
+                                controller.volume = factor
+                            } else if (pos > cfMs && controller.volume < 0.98f) {
+                                controller.volume = 1.0f
+                            }
+                        }
+
                         counter++
                         // Acumular duración de reproducción en el gestor de historial/estadísticas cada 5s
                         if (counter >= 10) {
