@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Boumusic</string>
+    <string name="search_hint">Buscar canciones, artistas o álbumes...</string>
+    <string name="no_songs_found">No se encontraron canciones</string>
+    <string name="permission_required">Permiso requerido</string>
+    <string name="permission_desc">Boumusic necesita acceso al almacenamiento para escanear y reproducir tus canciones locales (MP3, FLAC, AAC, etc.) sin anuncios.</string>
+    <string name="grant_permission">Conceder permiso</string>
+    <string name="refresh">Actualizar biblioteca</string>
+    <string name="unknown_artist">Artista desconocido</string>
+    <string name="unknown_album">Álbum desconocido</string>
+    <string name="empty_library">Copia tus canciones a la carpeta Music o Descargas de tu teléfono para comenzar a escuchar.</string>
+</resources>
