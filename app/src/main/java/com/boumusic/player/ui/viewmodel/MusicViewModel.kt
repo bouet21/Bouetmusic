@@ -2,6 +2,7 @@ package com.boumusic.player.ui.viewmodel
 
 import android.app.Application
 import android.content.ComponentName
+import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import android.widget.Toast
@@ -29,6 +30,7 @@ import com.boumusic.player.service.MusicService
 import com.boumusic.player.transfer.NetworkUtils
 import com.boumusic.player.transfer.TransferServer
 import com.boumusic.player.util.NotificationHelper
+import com.boumusic.player.util.ShareHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -174,7 +176,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _transferredFilesCount = MutableStateFlow(0)
     val transferredFilesCount: StateFlow<Int> = _transferredFilesCount.asStateFlow()
 
-    // Compartir canciones y listas vía QR
+    // Compartir canciones y listas (Bluetooth o QR)
+    private val _shareOptionsTarget = MutableStateFlow<ShareTarget?>(null)
+    val shareOptionsTarget: StateFlow<ShareTarget?> = _shareOptionsTarget.asStateFlow()
+
     private val _shareTarget = MutableStateFlow<ShareTarget?>(null)
     val shareTarget: StateFlow<ShareTarget?> = _shareTarget.asStateFlow()
 
@@ -660,6 +665,54 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         transferServer?.stop()
         _isTransferServerRunning.value = false
         _transferServerUrl.value = null
+    }
+
+    fun openShareOptions(song: Song) {
+        _shareOptionsTarget.value = ShareTarget(ShareType.SONG, song = song)
+    }
+
+    fun openShareOptions(playlist: Playlist) {
+        _shareOptionsTarget.value = ShareTarget(ShareType.PLAYLIST, playlist = playlist)
+    }
+
+    fun dismissShareOptions() {
+        _shareOptionsTarget.value = null
+    }
+
+    fun chooseShareBluetooth(context: Context, target: ShareTarget) {
+        _shareOptionsTarget.value = null
+        when (target.type) {
+            ShareType.SONG -> {
+                target.song?.let { song ->
+                    ShareHelper.shareSongViaBluetooth(context, song)
+                }
+            }
+            ShareType.PLAYLIST -> {
+                target.playlist?.let { playlist ->
+                    val songs = getPlaylistSongs(playlist)
+                    ShareHelper.sharePlaylistViaBluetooth(context, playlist, songs)
+                }
+            }
+        }
+    }
+
+    fun chooseShareQr(target: ShareTarget) {
+        _shareOptionsTarget.value = null
+        when (target.type) {
+            ShareType.SONG -> target.song?.let { shareSong(it) }
+            ShareType.PLAYLIST -> target.playlist?.let { sharePlaylist(it) }
+        }
+    }
+
+    fun switchToBluetoothFromQr(context: Context, target: ShareTarget) {
+        dismissShareDialog()
+        when (target.type) {
+            ShareType.SONG -> target.song?.let { ShareHelper.shareSongViaBluetooth(context, it) }
+            ShareType.PLAYLIST -> target.playlist?.let { playlist ->
+                val songs = getPlaylistSongs(playlist)
+                ShareHelper.sharePlaylistViaBluetooth(context, playlist, songs)
+            }
+        }
     }
 
     fun shareSong(song: Song) {

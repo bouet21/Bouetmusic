@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -156,15 +157,15 @@ fun PlaylistsScreen(
                         )
                     }
 
-                    // Botón Compartir Lista por QR
+                    // Botón Compartir Lista (Bluetooth o QR)
                     IconButton(
-                        onClick = { viewModel.sharePlaylist(playlist) },
+                        onClick = { viewModel.openShareOptions(playlist) },
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
                             .background(DarkSurfaceVariant)
                     ) {
-                        Icon(Icons.Default.QrCode2, contentDescription = "Compartir lista por QR", tint = NeonCyan, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Share, contentDescription = "Compartir lista", tint = NeonCyan, modifier = Modifier.size(20.dp))
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
@@ -312,7 +313,7 @@ fun PlaylistsScreen(
                                 playlist = playlist,
                                 onOpen = { viewModel.selectPlaylist(playlist) },
                                 onPlay = { viewModel.playPlaylist(playlist) },
-                                onShareQr = { viewModel.sharePlaylist(playlist) },
+                                onShare = { viewModel.openShareOptions(playlist) },
                                 onDelete = { viewModel.deletePlaylist(playlist.id) }
                             )
                             Spacer(modifier = Modifier.height(10.dp))
@@ -329,7 +330,7 @@ private fun PlaylistItemCard(
     playlist: Playlist,
     onOpen: () -> Unit,
     onPlay: () -> Unit,
-    onShareQr: () -> Unit,
+    onShare: () -> Unit,
     onDelete: () -> Unit
 ) {
     Row(
@@ -380,8 +381,8 @@ private fun PlaylistItemCard(
             Icon(Icons.Default.PlayArrow, contentDescription = "Reproducir", tint = NeonCyan)
         }
 
-        IconButton(onClick = onShareQr, modifier = Modifier.size(38.dp)) {
-            Icon(Icons.Default.QrCode2, contentDescription = "Compartir lista por QR", tint = NeonCyan)
+        IconButton(onClick = onShare, modifier = Modifier.size(38.dp)) {
+            Icon(Icons.Default.Share, contentDescription = "Compartir lista", tint = NeonCyan)
         }
 
         IconButton(onClick = onDelete, modifier = Modifier.size(38.dp)) {

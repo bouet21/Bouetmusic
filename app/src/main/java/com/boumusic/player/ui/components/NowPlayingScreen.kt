@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -86,7 +87,7 @@ fun NowPlayingScreen(
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
     onSetSleepTimer: (Int) -> Unit = {},
-    onShareQrClick: (Song) -> Unit = {},
+    onShareClick: (Song) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var isUserDraggingSlider by remember { mutableStateOf(false) }
@@ -200,11 +201,11 @@ fun NowPlayingScreen(
             )
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Botón compartir por código QR
-                IconButton(onClick = { onShareQrClick(song) }) {
+                // Botón compartir (Bluetooth o QR)
+                IconButton(onClick = { onShareClick(song) }) {
                     Icon(
-                        imageVector = Icons.Default.QrCode2,
-                        contentDescription = "Compartir por código QR",
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Compartir canción",
                         tint = NeonCyan,
                         modifier = Modifier.size(24.dp)
                     )
