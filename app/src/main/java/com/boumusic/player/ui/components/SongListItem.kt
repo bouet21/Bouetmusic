@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.boumusic.player.model.Song
-import com.boumusic.player.ui.theme.DarkCardBorder
 import com.boumusic.player.ui.theme.DarkSurfaceVariant
 import com.boumusic.player.ui.theme.DeepCyan
 import com.boumusic.player.ui.theme.ElectricPurple
@@ -43,10 +44,9 @@ fun SongListItem(
     song: Song,
     isPlayingThis: Boolean,
     onClick: () -> Unit,
+    onMenuClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val activeBorderColor = if (isPlayingThis) NeonCyan.copy(alpha = 0.5f) else Color.Transparent
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -59,7 +59,7 @@ fun SongListItem(
         // Carátula del álbum o icono con degradado si no tiene
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(50.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(
                     Brush.linearGradient(
@@ -80,7 +80,7 @@ fun SongListItem(
                     imageVector = Icons.Default.MusicNote,
                     contentDescription = null,
                     tint = TextPrimary.copy(alpha = 0.8f),
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }
@@ -113,7 +113,7 @@ fun SongListItem(
             )
         }
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(6.dp))
 
         // Indicador de reproducción o duración
         if (isPlayingThis) {
@@ -129,6 +129,20 @@ fun SongListItem(
                 style = MaterialTheme.typography.labelSmall,
                 color = TextSecondary
             )
+        }
+
+        if (onMenuClick != null) {
+            IconButton(
+                onClick = onMenuClick,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "Opciones",
+                    tint = TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }

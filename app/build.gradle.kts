@@ -12,8 +12,8 @@ android {
         applicationId = "com.boumusic.player"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -71,6 +71,9 @@ dependencies {
 
     // Coil for async image loading (album art)
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    // Apache Commons Net para cliente y streaming FTP
+    implementation("commons-net:commons-net:3.10.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

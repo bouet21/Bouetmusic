@@ -1,62 +1,37 @@
 # 🎵 Boumusic — Reproductor de Música para Android (Sin Anuncios)
 
-**Boumusic** es una aplicación nativa moderna para Android diseñada específicamente para escuchar música local con la máxima calidad, sin anuncios publicitarios ni interrupciones, y con un sistema integrado para **transferir canciones directamente desde tu ordenador por Wi-Fi sin cables**.
+**Boumusic** es una aplicación nativa moderna para Android diseñada específicamente para escuchar música local y remota con la máxima calidad, sin anuncios publicitarios ni interrupciones.
 
 ---
 
 ## ✨ Características Principales
 
 * 🚫 **100% Libre de Anuncios**: Sin banners, sin anuncios emergentes ni cortes comerciales.
-* 💻➡️📱 **Transferencia Directa PC a Móvil (Wi-Fi)**:
-  * Servidor web local integrado en la propia aplicación.
-  * Abre una dirección web (ej. `http://192.168.1.45:8080`) en el navegador de tu ordenador (Chrome, Edge, Firefox).
-  * Arrastra y suelta canciones (`.mp3`, `.flac`, `.m4a`, `.wav`).
-  * Las canciones se guardan automáticamente en la carpeta **`Music/Boumusic/`** de tu teléfono y aparecen al instante en la lista de reproducción.
-* 🎧 **Reproducción en Segundo Plano**: Soporte completo con **AndroidX Media3 / ExoPlayer** y `MediaSessionService`. El audio sigue sonando con la pantalla bloqueada o mientras usas otras apps.
-* 📱 **Controles en Notificación y Pantalla de Bloqueo**: Pausa, reproduce, retrocede y avanza directamente desde la barra de notificaciones del sistema Android.
-* 🔍 **Búsqueda Instantánea**: Encuentra rápidamente cualquier canción por su título, artista o álbum.
-* 🎛️ **Controles Avanzados de Reproducción**:
-  * Modo Aleatorio (*Shuffle*).
-  * Modo Repetición (*Repeat Off*, *Repeat All*, *Repeat One*).
-  * Barra de progreso fluida (*Scrubbing*) con indicador de tiempo actual y duración total.
-* 🖼️ **Diseño Moderno Jetpack Compose**:
-  * Interfaz oscura (*Dark Theme*) elegante con degradados cian y púrpura.
-  * Mini-reproductor inferior con barra de progreso superior.
-  * Pantalla de reproducción a pantalla completa expansible con carátula de álbum.
+* 📑 **Listas de Reproducción (Playlists)**:
+  * Crea listas personalizadas desde la pestaña **Listas** o directamente desde el menú de cualquier canción.
+  * Añade o elimina canciones con un toque.
+  * Reproduce tus listas completas con soporte aleatorio y repetición.
+* 🌐 **Explorador y Streaming de Servidores FTP**:
+  * Conéctate a servidores FTP locales (NAS, PC, routers) o remotos mediante IP/Host, puerto, usuario y contraseña.
+  * Navega por las carpetas del servidor en tiempo real.
+  * **Streaming directo**: Escucha canciones alojadas en el servidor FTP sin necesidad de descargarlas en tu teléfono.
+  * **Descarga a local**: Guarda cualquier canción del FTP en tu carpeta **`Music/Boumusic/`** para tenerla siempre sin conexión.
+* 💻➡️📱 **Transferencia Wi-Fi por Lotes desde PC**:
+  * Servidor web local integrado. Abre la dirección web en el navegador de tu ordenador (Chrome, Edge, Firefox).
+  * Arrastra múltiples canciones o carpetas simultáneamente (subida masiva concurrente).
+  * Las canciones se guardan automáticamente en **`Music/Boumusic/`** y se indexan al instante.
+* 🎧 **Reproducción Continua en Segundo Plano**: Soporte completo con **AndroidX Media3 / ExoPlayer** y `MediaSessionService`. El audio sigue sonando con la pantalla bloqueada o mientras usas otras apps.
+* 📱 **Controles en Notificación y Pantalla de Bloqueo**: Pausa, reproduce, avanza y retrocede desde la barra de notificaciones del sistema.
+* 🔍 **Búsqueda Instantánea**: Encuentra rápidamente cualquier canción por título, artista o álbum.
 
 ---
 
-## 📦 ¿Cómo obtener el archivo APK directamente?
+## 📦 Descarga e Instalación
 
-Un archivo `.apk` es un paquete binario compilado y firmado digitalmente para Android que requiere las herramientas del SDK de Android y Java para generarse. Para obtener tu archivo APK listo para instalar en tu móvil:
+Descarga el archivo APK directamente desde el enlace oficial de la Release en GitHub:
 
-### Método Recomendado: Con Android Studio (En 1 clic)
+👉 **[Descargar Boumusic.apk (v1.1.0)](https://github.com/bouet21/Bouetmusic/releases/download/v1.1.0/Boumusic.apk)**
 
-1. Descarga e instala [Android Studio](https://developer.android.com/studio) (es gratuito y oficial de Google).
-2. Abre Android Studio y pulsa en **Open**.
-3. Selecciona esta carpeta:
-   ```
-   c:\Users\Bouet\Documents\Boumusic
-   ```
-4. En el menú superior de Android Studio, haz clic en:
-   **Build > Build Bundle(s) / APK(s) > Build APK(s)**
-5. En unos segundos, Android Studio compilará el proyecto y te mostrará una notificación en la esquina inferior derecha con un enlace azul: **`locate`**.
-6. Al hacer clic en `locate`, se abrirá la carpeta con tu archivo:
-   ```
-   app/build/outputs/apk/debug/app-debug.apk
-   ```
-7. Pasa ese archivo `app-debug.apk` a tu teléfono (por WhatsApp, Telegram, correo o cable USB) e instálalo.
-
----
-
-## 🌐 ¿Cómo usar la Transferencia desde el Ordenador?
-
-1. En la app **Boumusic** en tu teléfono, pulsa el icono de **Wi-Fi** en la esquina superior derecha (o el botón **Transferir desde PC**).
-2. Activa el interruptor **Servidor Wi-Fi Local**.
-3. Verás una dirección como:
-   ```
-   http://192.168.1.X:8080
-   ```
-4. En tu ordenador (conectado al mismo Wi-Fi), abre Google Chrome, Edge o Firefox y escribe esa dirección.
-5. Verás el portal web de Boumusic: simplemente arrastra los archivos `.mp3` o pulsa **Elegir archivos**.
-6. Las canciones se enviarán a tu teléfono a la carpeta **`Music/Boumusic/`** y estarán disponibles para escuchar al instante.
+1. Pasa el archivo `Boumusic.apk` a tu teléfono o descárgalo directamente desde el navegador de tu móvil.
+2. Pulsa sobre el archivo para instalarlo (activa "Permitir desde esta fuente" si tu teléfono te lo solicita).
+3. Abre **Boumusic** y ¡disfruta de tu música!
