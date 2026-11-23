@@ -379,6 +379,79 @@ class HistoryAndStatsManager(private val context: Context) {
         updateFlows()
     }
 
+    fun exportSyncData(): JSONObject {
+        val root = JSONObject()
+        val historyArray = JSONArray()
+        for (item in historyMap.values) {
+            val obj = JSONObject().apply {
+                put("songId", item.songId)
+                put("title", item.title)
+                put("artist", item.artist)
+                put("album", item.album)
+                put("genre", item.genre)
+                put("playCount", item.playCount)
+                put("lastPlayedTimestamp", item.lastPlayedTimestamp)
+                put("totalPlayedMs", item.totalPlayedMs)
+            }
+            historyArray.put(obj)
+        }
+        root.put("history", historyArray)
+
+        val recordsArray = JSONArray()
+        val records = synchronized(recordsList) { recordsList.toList() }
+        for (rec in records) {
+            val obj = JSONObject().apply {
+                put("songId", rec.songId)
+                put("title", rec.title)
+                put("artist", rec.artist)
+                put("album", rec.album)
+                put("genre", rec.genre)
+                put("timestamp", rec.timestamp)
+                put("durationPlayedMs", rec.durationPlayedMs)
+                put("year", rec.year)
+                put("quarter", rec.quarter)
+            }
+            recordsArray.put(obj)
+        }
+        root.put("records", recordsArray)
+        return root
+    }
+
+    fun mergeSyncData(syncJson: JSONObject) {
+        val recordsArr = syncJson.optJSONArray("records") ?: return
+        val existingTimestamps = synchronized(recordsList) { recordsList.map { it.timestamp }.toSet() }
+        val newRecords = mutableListOf<PlaybackRecord>()
+
+        for (i in 0 until recordsArr.length()) {
+            val obj = recordsArr.getJSONObject(i)
+            val ts = obj.getLong("timestamp")
+            if (!existingTimestamps.contains(ts)) {
+                newRecords.add(
+                    PlaybackRecord(
+                        songId = obj.optLong("songId", 0L),
+                        title = obj.getString("title"),
+                        artist = obj.getString("artist"),
+                        album = obj.optString("album", ""),
+                        genre = obj.optString("genre", "Varios"),
+                        timestamp = ts,
+                        durationPlayedMs = obj.optLong("durationPlayedMs", 0L),
+                        year = obj.optInt("year", 2026),
+                        quarter = obj.optInt("quarter", 4)
+                    )
+                )
+            }
+        }
+
+        if (newRecords.isNotEmpty()) {
+            synchronized(recordsList) {
+                recordsList.addAll(newRecords)
+                recordsList.sortBy { it.timestamp }
+            }
+            updateFlows()
+            scheduleSave()
+        }
+    }
+
     private fun checkQuarterlyNotification() {
         scope.launch {
             val prefs = context.getSharedPreferences("boumusic_stats_prefs", Context.MODE_PRIVATE)

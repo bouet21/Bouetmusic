@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.net.wifi.WifiManager
 import android.os.Build
 import com.boumusic.player.data.BackupManager
+import com.boumusic.player.data.HistoryAndStatsManager
 import com.boumusic.player.model.FtpConfig
 import com.boumusic.player.model.Playlist
 import kotlinx.coroutines.CoroutineScope
@@ -60,6 +61,7 @@ class NetworkSyncManager(
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences("boumusic_sync_prefs", Context.MODE_PRIVATE)
+    private val historyManager = HistoryAndStatsManager(context)
     private val scope = CoroutineScope(Dispatchers.IO)
 
     private val _discoveredDevices = MutableStateFlow<List<NetworkDevice>>(emptyList())
@@ -275,7 +277,8 @@ class NetworkSyncManager(
 
             if (path.startsWith("/api/sync")) {
                 if (method == "GET") {
-                    val json = BackupManager.generateBackupJson(serverProvider(), playlistProvider(), emptyMap())
+                    val statsJson = historyManager.exportSyncData()
+                    val json = BackupManager.generateBackupJson(serverProvider(), playlistProvider(), emptyMap(), statsJson)
                     val jsonBytes = json.toByteArray(Charsets.UTF_8)
                     val response = "HTTP/1.1 200 OK\r\n" +
                             "Content-Type: application/json; charset=utf-8\r\n" +
@@ -297,6 +300,9 @@ class NetworkSyncManager(
                     val body = String(bodyBytes, 0, readTotal, Charsets.UTF_8)
                     val data = BackupManager.parseBackupJson(body)
                     onDataReceived(data.servers, data.playlists)
+                    if (data.statsJson != null) {
+                        historyManager.mergeSyncData(data.statsJson)
+                    }
 
                     val respJson = """{"success":true,"servers":${data.servers.size},"playlists":${data.playlists.size}}"""
                     val respBytes = respJson.toByteArray(Charsets.UTF_8)
@@ -543,7 +549,8 @@ class NetworkSyncManager(
                 _syncStatus.value = "Sincronizando con ${device.name}..."
 
                 // 1. Enviar datos locales (POST)
-                val localJson = BackupManager.generateBackupJson(serverProvider(), playlistProvider(), emptyMap())
+                val statsJson = historyManager.exportSyncData()
+                val localJson = BackupManager.generateBackupJson(serverProvider(), playlistProvider(), emptyMap(), statsJson)
                 val postReq = Request.Builder()
                     .url("http://${device.ip}:${device.port}/api/sync")
                     .post(localJson.toRequestBody("application/json; charset=utf-8".toMediaType()))
@@ -562,6 +569,9 @@ class NetworkSyncManager(
                 if (body.isNotBlank()) {
                     val remoteData = BackupManager.parseBackupJson(body)
                     onDataReceived(remoteData.servers, remoteData.playlists)
+                    if (remoteData.statsJson != null) {
+                        historyManager.mergeSyncData(remoteData.statsJson)
+                    }
                 }
 
                 lastSyncTimes[device.id] = System.currentTimeMillis()
