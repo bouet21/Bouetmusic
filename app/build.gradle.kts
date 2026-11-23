@@ -12,8 +12,8 @@ android {
         applicationId = "com.boumusic.player"
         minSdk = 24
         targetSdk = 34
-        versionCode = 20
-        versionName = "1.9.5"
+        versionCode = 21
+        versionName = "1.9.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -39,6 +39,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources {

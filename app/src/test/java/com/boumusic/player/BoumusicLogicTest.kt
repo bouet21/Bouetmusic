@@ -49,8 +49,8 @@ class BoumusicLogicTest {
     fun testEqualizerBandLevel() {
         val band = EqualizerBand(0, 60, -1500, 1500, 0)
         assertEquals(0.toShort(), band.currentLevel)
-        band.currentLevel = 500
-        assertEquals(500.toShort(), band.currentLevel)
+        val updated = band.copy(currentLevel = 500)
+        assertEquals(500.toShort(), updated.currentLevel)
     }
 
     @Test

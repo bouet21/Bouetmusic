@@ -350,7 +350,7 @@ fun SettingsDialog(
                         .padding(14.dp)
                 ) {
                     Column {
-                        Text("Boumusic v1.9.2", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("Boumusic v${com.boumusic.player.BuildConfig.VERSION_NAME}", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         Text("Reproductor de audio nativo con soporte SMB (Windows/Linux), FTP, FTPS, WebDAV, streaming en red, ecualizador, crossfade y transferencia sin cables.", color = TextSecondary, fontSize = 12.sp)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text("100% libre, sin publicidad ni rastreadores.", color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)

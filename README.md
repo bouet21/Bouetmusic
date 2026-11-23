@@ -15,7 +15,7 @@
 
 Descarga siempre la versión más reciente en formato APK lista para instalar en tu móvil:
 
-👉 **[Descargar Boumusic v1.9.2 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.9.2/Boumusic.apk)**  
+👉 **[Descargar Boumusic v1.9.6 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.9.6/Boumusic.apk)**  
 *(o visita todas las versiones en la sección de [Releases de GitHub](https://github.com/bouet21/Bouetmusic/releases))*
 
 ---
