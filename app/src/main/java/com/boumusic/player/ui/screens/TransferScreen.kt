@@ -28,19 +28,26 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Laptop
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,7 +81,11 @@ fun TransferScreen(
     val discoveredDevices by viewModel.discoveredSyncDevices.collectAsState()
     val autoSyncIds by viewModel.autoSyncDeviceIds.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
+    val isScanning by viewModel.isSyncScanning.collectAsState()
     val scrollState = rememberScrollState()
+
+    var manualIp by remember { mutableStateOf("") }
+    var manualResult by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
 
     Column(
         modifier = Modifier
@@ -101,6 +112,51 @@ fun TransferScreen(
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = TextPrimary
             )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Fila de información local y botón de escaneo activo
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(DarkSurfaceVariant.copy(alpha = 0.5f))
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Wifi, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text("Este móvil", color = TextSecondary, fontSize = 11.sp)
+                    Text(
+                        text = "IP: ${viewModel.localSyncIp ?: "Detectando..."} • Puerto: ${viewModel.localSyncPort}",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Button(
+                onClick = { viewModel.scanSyncSubnet() },
+                enabled = !isScanning,
+                colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.height(34.dp)
+            ) {
+                if (isScanning) {
+                    CircularProgressIndicator(color = DarkBackground, modifier = Modifier.size(14.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Buscando...", color = DarkBackground, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                } else {
+                    Icon(Icons.Default.Search, contentDescription = null, tint = DarkBackground, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Escanear red", color = DarkBackground, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -244,6 +300,73 @@ fun TransferScreen(
                             }
                         }
                     }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Conexión manual directa por IP (ideal para routers mesh, aislamiento Wi-Fi o VPNs)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(DarkSurfaceVariant.copy(alpha = 0.5f))
+                .padding(14.dp)
+        ) {
+            Column {
+                Text(
+                    text = "Conectar manualmente por dirección IP",
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+                Text(
+                    text = "Introduce la IP que muestra la pantalla de tu PC u otro móvil para conectar directamente.",
+                    color = TextSecondary,
+                    fontSize = 11.sp
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = manualIp,
+                        onValueChange = { manualIp = it },
+                        placeholder = { Text("Ej: 192.168.68.64", fontSize = 12.sp) },
+                        modifier = Modifier.weight(1f).height(50.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = DarkSurface,
+                            unfocusedContainerColor = DarkSurface,
+                            focusedBorderColor = NeonCyan,
+                            unfocusedBorderColor = DarkCardBorder,
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (manualIp.isNotBlank()) {
+                                viewModel.connectSyncDirectly(manualIp) { ok, msg ->
+                                    manualResult = ok to msg
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonCyan),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.height(50.dp)
+                    ) {
+                        Text("Conectar", color = DarkBackground, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
+                manualResult?.let { (success, msg) ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = msg,
+                        color = if (success) NeonCyan else androidx.compose.ui.graphics.Color(0xFFEF4444),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }

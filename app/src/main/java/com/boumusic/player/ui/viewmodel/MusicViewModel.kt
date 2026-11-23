@@ -311,9 +311,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val discoveredSyncDevices: StateFlow<List<NetworkDevice>> = networkSyncManager.discoveredDevices
     val autoSyncDeviceIds: StateFlow<Set<String>> = networkSyncManager.autoSyncDeviceIds
     val syncStatus: StateFlow<String?> = networkSyncManager.syncStatus
+    val isSyncScanning: StateFlow<Boolean> = networkSyncManager.isScanning
+    val localSyncIp: String? get() = networkSyncManager.localIp
+    val localSyncPort: Int get() = networkSyncManager.actualHttpPort
 
     fun toggleAutoSync(deviceId: String) = networkSyncManager.toggleAutoSync(deviceId)
     fun syncWithDevice(device: NetworkDevice) = networkSyncManager.syncWithDevice(device)
+    fun scanSyncSubnet() = networkSyncManager.scanSubnet()
+    fun connectSyncDirectly(ip: String, onDone: (Boolean, String) -> Unit) = networkSyncManager.connectDirectly(ip, onDone = onDone)
 
     // Compartir canciones y listas (Bluetooth o QR)
     private val _shareOptionsTarget = MutableStateFlow<ShareTarget?>(null)
