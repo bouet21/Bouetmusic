@@ -32,6 +32,8 @@ import com.boumusic.player.model.Song
 import com.boumusic.player.model.SongHistoryItem
 import com.boumusic.player.model.SongSortOrder
 import com.boumusic.player.service.MusicService
+import com.boumusic.player.sync.NetworkDevice
+import com.boumusic.player.sync.NetworkSyncManager
 import com.boumusic.player.transfer.NetworkUtils
 import com.boumusic.player.transfer.TransferServer
 import com.boumusic.player.util.NotificationHelper
@@ -283,6 +285,36 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _transferredFilesCount = MutableStateFlow(0)
     val transferredFilesCount: StateFlow<Int> = _transferredFilesCount.asStateFlow()
 
+    // Sincronización automática en red local (Boumusic Desktop / Android)
+    val networkSyncManager = NetworkSyncManager(
+        context = application,
+        serverProvider = { _savedFtpConfigs.value },
+        playlistProvider = { _playlists.value },
+        onDataReceived = { newServers, newPlaylists ->
+            viewModelScope.launch {
+                for (s in newServers) {
+                    ftpManager.saveConfig(s)
+                }
+                loadSavedFtpConfigs()
+
+                val currentPlaylists = _playlists.value.toMutableList()
+                for (p in newPlaylists) {
+                    currentPlaylists.removeAll { it.id == p.id || it.name.equals(p.name, ignoreCase = true) }
+                    currentPlaylists.add(p)
+                }
+                playlistRepo.savePlaylists(currentPlaylists)
+                loadPlaylists()
+            }
+        }
+    )
+
+    val discoveredSyncDevices: StateFlow<List<NetworkDevice>> = networkSyncManager.discoveredDevices
+    val autoSyncDeviceIds: StateFlow<Set<String>> = networkSyncManager.autoSyncDeviceIds
+    val syncStatus: StateFlow<String?> = networkSyncManager.syncStatus
+
+    fun toggleAutoSync(deviceId: String) = networkSyncManager.toggleAutoSync(deviceId)
+    fun syncWithDevice(device: NetworkDevice) = networkSyncManager.syncWithDevice(device)
+
     // Compartir canciones y listas (Bluetooth o QR)
     private val _shareOptionsTarget = MutableStateFlow<ShareTarget?>(null)
     val shareOptionsTarget: StateFlow<ShareTarget?> = _shareOptionsTarget.asStateFlow()
@@ -315,6 +347,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         loadPlaylists()
         loadSavedFtpConfigs()
         ftpStreamBridge.start()
+        networkSyncManager.start()
     }
 
     private fun initializeMediaController() {
@@ -1574,6 +1607,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
         stopProgressTracking()
         stopTransferServer()
+        networkSyncManager.stop()
         sleepTimerJob?.cancel()
         ftpStreamBridge.stop()
         equalizerManager.release()

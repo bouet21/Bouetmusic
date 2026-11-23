@@ -17,14 +17,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Laptop
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -67,10 +71,16 @@ fun TransferScreen(
     val serverUrl by viewModel.transferServerUrl.collectAsState()
     val transferredCount by viewModel.transferredFilesCount.collectAsState()
 
+    val discoveredDevices by viewModel.discoveredSyncDevices.collectAsState()
+    val autoSyncIds by viewModel.autoSyncDeviceIds.collectAsState()
+    val syncStatus by viewModel.syncStatus.collectAsState()
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(DarkBackground)
+            .verticalScroll(scrollState)
             .padding(20.dp)
     ) {
         // Cabecera superior
@@ -87,13 +97,166 @@ fun TransferScreen(
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Transferir desde PC",
+                text = "Red Local y Transferencia PC",
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = TextPrimary
             )
         }
 
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // SECCIÓN 1: SINCRONIZACIÓN AUTOMÁTICA EN RED LOCAL (UDP/HTTP)
+        Text(
+            text = "DISPOSITIVOS CONECTADOS (AUTO-SYNC)",
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold),
+            color = NeonCyan
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        syncStatus?.let { status ->
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(DarkSurfaceVariant)
+                    .border(1.dp, NeonCyan, RoundedCornerShape(10.dp))
+                    .padding(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Sync, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(status, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        if (discoveredDevices.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(DarkSurface)
+                    .border(1.dp, DarkCardBorder, RoundedCornerShape(16.dp))
+                    .padding(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Wifi, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Buscando PCs y dispositivos en la misma red...",
+                            color = TextPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = "Abre Boumusic en tu PC (Windows/Linux) conectado al mismo Wi-Fi para sincronizar automáticamente servidores y listas.",
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+                    }
+                }
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                discoveredDevices.forEach { dev ->
+                    val isAutoSync = autoSyncIds.contains(dev.id)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(DarkSurface)
+                            .border(1.dp, if (isAutoSync) NeonCyan.copy(alpha = 0.5f) else DarkCardBorder, RoundedCornerShape(16.dp))
+                            .padding(14.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isAutoSync) NeonCyan.copy(alpha = 0.15f) else DarkSurfaceVariant),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (dev.type.equals("PC", ignoreCase = true)) Icons.Default.Laptop else Icons.Default.PhoneAndroid,
+                                            contentDescription = null,
+                                            tint = if (isAutoSync) NeonCyan else TextSecondary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(dev.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(if (isAutoSync) NeonCyan.copy(alpha = 0.2f) else DarkSurfaceVariant)
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = if (isAutoSync) "Auto-Sync" else dev.type,
+                                                    color = if (isAutoSync) NeonCyan else TextSecondary,
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                        Text("${dev.ip}:${dev.port}", color = TextSecondary, fontSize = 11.sp)
+                                    }
+                                }
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Auto", color = if (isAutoSync) NeonCyan else TextSecondary, fontSize = 11.sp)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Switch(
+                                        checked = isAutoSync,
+                                        onCheckedChange = { viewModel.toggleAutoSync(dev.id) },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = DarkBackground,
+                                            checkedTrackColor = NeonCyan,
+                                            uncheckedThumbColor = TextSecondary,
+                                            uncheckedTrackColor = DarkSurfaceVariant
+                                        )
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Button(
+                                onClick = { viewModel.syncWithDevice(dev) },
+                                colors = ButtonDefaults.buttonColors(containerColor = DarkSurfaceVariant),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth().height(36.dp)
+                            ) {
+                                Icon(Icons.Default.Sync, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Sincronizar ahora con este dispositivo", color = NeonCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
+
+        // SECCIÓN 2: SERVIDOR WEB WI-FI (Subir archivos vía navegador)
+        Text(
+            text = "SUBIDA DE ARCHIVOS POR NAVEGADOR WEB",
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold),
+            color = ElectricPurple
+        )
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Tarjeta de estado del servidor Wi-Fi
         Box(
@@ -102,7 +265,7 @@ fun TransferScreen(
                 .clip(RoundedCornerShape(20.dp))
                 .background(DarkSurface)
                 .border(1.dp, if (isRunning) NeonCyan.copy(alpha = 0.5f) else DarkCardBorder, RoundedCornerShape(20.dp))
-                .padding(20.dp)
+                .padding(18.dp)
         ) {
             Column {
                 Row(
@@ -113,7 +276,7 @@ fun TransferScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(40.dp)
                                 .clip(CircleShape)
                                 .background(if (isRunning) NeonCyan.copy(alpha = 0.15f) else DarkSurfaceVariant),
                             contentAlignment = Alignment.Center
@@ -122,19 +285,19 @@ fun TransferScreen(
                                 imageVector = Icons.Default.Wifi,
                                 contentDescription = null,
                                 tint = if (isRunning) NeonCyan else TextSecondary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "Servidor Wi-Fi Local",
-                                style = MaterialTheme.typography.titleMedium,
+                                text = "Servidor Web Local",
+                                style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
                                 color = TextPrimary
                             )
                             Text(
-                                text = if (isRunning) "En línea y esperando canciones" else "Desactivado",
-                                style = MaterialTheme.typography.bodyMedium,
+                                text = if (isRunning) "En línea y esperando archivos" else "Desactivado",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
                                 color = if (isRunning) NeonCyan else TextSecondary
                             )
                         }
@@ -155,11 +318,11 @@ fun TransferScreen(
                 }
 
                 if (isRunning && serverUrl != null) {
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
                         text = "Abre este enlace en el navegador de tu ordenador:",
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
                         color = TextSecondary
                     )
 
@@ -178,7 +341,8 @@ fun TransferScreen(
                             text = serverUrl!!,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
                             ),
                             color = NeonCyan
                         )
@@ -201,19 +365,19 @@ fun TransferScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = Icons.Default.Folder,
                             contentDescription = null,
                             tint = ElectricPurple,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Carpeta de destino: Music/Boumusic",
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
                             color = TextSecondary
                         )
                     }
@@ -225,12 +389,12 @@ fun TransferScreen(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = null,
                                 tint = NeonCyan,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Canciones recibidas en esta sesión: $transferredCount",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, fontSize = 12.sp),
                                 color = NeonCyan
                             )
                         }
@@ -239,7 +403,7 @@ fun TransferScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Instrucciones paso a paso
         Text(
@@ -248,7 +412,7 @@ fun TransferScreen(
             color = TextSecondary
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         InstructionStep(
             number = "1",
@@ -256,28 +420,20 @@ fun TransferScreen(
             description = "Conecta tu ordenador y tu móvil a la misma red Wi-Fi o punto de acceso."
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         InstructionStep(
             number = "2",
-            title = "Abre la dirección en tu PC",
-            description = "Escribe la dirección web indicada arriba en Chrome, Edge o Firefox en tu ordenador."
+            title = "Sincronización instantánea con la app de PC",
+            description = "Si abres Boumusic en tu PC (Windows/Linux), ambos dispositivos se detectan automáticamente. Activa 'Auto' para sincronizar listas y servidores sin pulsar nada."
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         InstructionStep(
             number = "3",
-            title = "Arrastra y suelta tus archivos",
-            description = "Arrastra tus canciones MP3 o FLAC a la ventana del navegador. Boumusic creará la carpeta automáticamente y las indexará al instante."
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        InstructionStep(
-            number = "4",
-            title = "Comparte con amigos mediante QR",
-            description = "Pulsa en los tres puntos (⋮) de cualquier canción o lista y elige 'Compartir con QR'. Tu amigo podrá escanearlo con su cámara y descargar la música al instante."
+            title = "Subida manual por navegador",
+            description = "Activa el Servidor Web arriba, abre la dirección IP en Chrome o Edge y arrastra canciones MP3 o FLAC para transferirlas por Wi-Fi."
         )
     }
 }
@@ -325,7 +481,7 @@ private fun InstructionStep(
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
                 color = TextSecondary
             )
         }
