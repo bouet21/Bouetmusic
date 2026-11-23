@@ -10,7 +10,7 @@ data class EqualizerBand(
     val centerFreqHz: Int,
     val minLevel: Short,
     val maxLevel: Short,
-    var currentLevel: Short
+    val currentLevel: Short
 )
 
 class EqualizerManager(private val context: Context) {
@@ -60,6 +60,15 @@ class EqualizerManager(private val context: Context) {
                     if (currentPresetIndex >= 0 && currentPresetIndex < numberOfPresets) {
                         try {
                             usePreset(currentPresetIndex)
+                        } catch (ignored: Throwable) {}
+                    } else {
+                        try {
+                            for (i in 0 until numberOfBands) {
+                                val b = i.toShort()
+                                if (prefs.contains("band_$b")) {
+                                    setBandLevel(b, prefs.getInt("band_$b", 0).toShort())
+                                }
+                            }
                         } catch (ignored: Throwable) {}
                     }
                 }
@@ -142,14 +151,20 @@ class EqualizerManager(private val context: Context) {
                 list.clear()
             }
         }
-        return if (list.isNotEmpty()) list else fallbackBands
+        return if (list.isNotEmpty()) list else fallbackBands.map { b ->
+            val saved = prefs.getInt("band_${b.bandIndex}", b.currentLevel.toInt()).toShort()
+            b.copy(currentLevel = saved)
+        }
     }
 
     fun setBandLevel(band: Short, level: Short) {
         try {
             equalizer?.setBandLevel(band, level)
             currentPresetIndex = -1
-            prefs.edit().putInt("current_preset", -1).apply()
+            prefs.edit()
+                .putInt("current_preset", -1)
+                .putInt("band_$band", level.toInt())
+                .apply()
         } catch (e: Throwable) {
             e.printStackTrace()
         }

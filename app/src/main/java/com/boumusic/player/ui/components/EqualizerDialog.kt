@@ -185,7 +185,7 @@ fun EqualizerDialog(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        bands.forEachIndexed { _, band ->
+                        bands.forEach { band ->
                             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -197,15 +197,19 @@ fun EqualizerDialog(
                                     Text(String.format("%+.1f dB", db), color = TextSecondary, fontSize = 12.sp)
                                 }
 
+                                val minLevel = band.minLevel.toFloat()
+                                val maxLevel = if (band.maxLevel > band.minLevel) band.maxLevel.toFloat() else (minLevel + 1f)
                                 Slider(
-                                    value = band.currentLevel.toFloat(),
+                                    value = band.currentLevel.toFloat().coerceIn(minLevel, maxLevel),
                                     onValueChange = { newVal ->
                                         val newLevel = newVal.toInt().toShort()
                                         equalizerManager.setBandLevel(band.bandIndex, newLevel)
-                                        band.currentLevel = newLevel
+                                        bands = bands.map { b ->
+                                            if (b.bandIndex == band.bandIndex) b.copy(currentLevel = newLevel) else b
+                                        }
                                         selectedPresetIndex = -1
                                     },
-                                    valueRange = band.minLevel.toFloat()..band.maxLevel.toFloat(),
+                                    valueRange = minLevel..maxLevel,
                                     colors = SliderDefaults.colors(
                                         thumbColor = NeonCyan,
                                         activeTrackColor = NeonCyan,

@@ -14,10 +14,11 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
-    <!-- Permisos de red local para transmisión Wi-Fi PC -> Móvil -->
+    <!-- Permisos de red local para transmisión Wi-Fi PC -> Móvil y sincronización -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <application
         android:allowBackup="true"
