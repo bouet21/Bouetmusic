@@ -1,13 +1,13 @@
 # 🎵 Boumusic — Reproductor de Música Nativo para Android
 
-[![Release](https://img.shields.io/github/v/release/bouet21/Bouetmusic?color=00F5D4&label=Versi%C3%B3n)](https://github.com/bouet21/Bouetmusic/releases/latest)
+[![Release](https://img.shields.io/github/v/release/bouet21/Bouetmusic?color=00F5D4&label=Versi%C3%B3n%20v2.0.0)](https://github.com/bouet21/Bouetmusic/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B%20(API%2024%2B)-7B2CBF)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0-blue)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-brightgreen)](https://developer.android.com/jetpack/compose)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-blueviolet)](https://github.com/bouet21/Bouetmusic/actions)
 [![No Ads](https://img.shields.io/badge/Publicidad-0%25%20(Sin%20Anuncios)-success)](#)
 
-**Boumusic** es un reproductor de música nativo para Android diseñado desde cero para disfrutar de tu música local y remota con la máxima fidelidad, interfaz futurista con tema oscuro neón (Neon Cyan y Electric Purple), cero anuncios y herramientas de nivel profesional: **soporte para carpetas compartidas de Windows y Linux (SMB2/SMB3), servidores WebDAV y FTP/FTPS con streaming directo y caché**, **crossfade configurable y normalización de volumen (Loudness Enhancer)**, **filtros de biblioteca con lista negra de carpetas y exclusión de audios de WhatsApp**, **historial de reproducciones y estadísticas trimestrales tipo Wrapped**, **soporte bilingüe completo (Español/Inglés)** y **compilación continua automatizada (CI/CD)**.
+**Boumusic** es un reproductor de música nativo para Android diseñado desde cero para disfrutar de tu música local y remota con la máxima fidelidad, interfaz futurista con tema oscuro neón (Neon Cyan y Electric Purple), cero anuncios y herramientas de nivel profesional: **descargador integrado SpotDL con guardado directo a SMB, FTP y memoria interna**, **soporte para carpetas compartidas de Windows y Linux (SMB2/SMB3), servidores WebDAV y FTP/FTPS con streaming directo y caché**, **crossfade configurable y normalización de volumen (Loudness Enhancer)**, **filtros de biblioteca con lista negra de carpetas y exclusión de audios de WhatsApp**, **historial de reproducciones y estadísticas tipo Wrapped**, y **sincronización automática en red local con Boumusic Desktop**.
 
 ---
 
@@ -15,8 +15,28 @@
 
 Descarga siempre la versión más reciente en formato APK lista para instalar en tu móvil:
 
-👉 **[Descargar Boumusic v1.9.6 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v1.9.6/Boumusic.apk)**  
+👉 **[Descargar Boumusic v2.0.0 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v2.0.0/Boumusic.apk)**  
 *(o visita todas las versiones en la sección de [Releases de GitHub](https://github.com/bouet21/Bouetmusic/releases))*
+
+---
+
+## 🚀 Novedades Principales de la v2.0.0: Módulo SpotDL & Guardado Directo a SMB / FTP
+
+### 📥 1. Descargador SpotDL Integrado (Spotify & Streams)
+* **Búsqueda Universal de Música**:
+  * Pega cualquier enlace de Spotify (canción individual, álbum completo o playlist) o escribe directamente el nombre de la pista o artista.
+  * Extracción de metadatos de alta fidelidad: títulos limpios, artistas, carátula del álbum en alta resolución y duración precisa.
+  * Resultados extendidos: muestra hasta **30 canciones iniciales** con botón interactivo **"Cargar más canciones (+25)"** para paginación rápida.
+* **Guardado Directo en Servidores Remotos (SMB / FTP / WebDAV)**:
+  * Elige desde el selector desplegable cualquier servidor configurado en la app:
+    * **Servidores SMB**: Sube automáticamente la canción descargada a carpetas de red compartidas de Windows o Samba en Linux.
+    * **Servidores FTP / FTPS / WebDAV**: Transfiere las canciones directamente a servidores NAS o almacenamiento remoto.
+* **Guardado en Almacenamiento Local del Teléfono**:
+  * Guarda automáticamente en la carpeta `Music/Boumusic/` y notifica al escáner de medios de Android (`MediaScannerConnection`) para que la canción aparezca de inmediato en la biblioteca sin necesidad de reiniciar la app.
+* **Sinergia con Boumusic Desktop en Red Local**:
+  * Si tienes abierto `Boumusic Desktop` en tu ordenador conectado al mismo Wi-Fi (detectado automáticamente vía `NetworkSyncManager`), el teléfono puede delegar la descarga al PC o realizarla directamente desde la nube.
+* **Cola de Descargas en Tiempo Real**:
+  * Monitorización de progreso con barra continua de descarga y subida, estado contextual (*Localizando audio*, *Descargando*, *Subiendo a SMB*, *Completado*) y botón para limpiar descargas finalizadas.
 
 ---
 
