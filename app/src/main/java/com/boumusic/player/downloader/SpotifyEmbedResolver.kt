@@ -139,6 +139,19 @@ object SpotifyEmbedResolver {
     }
 
     private fun resolveTextSearch(query: String, limit: Int): List<DownloadTrackItem> {
+        // 1. Intentar Deezer API (Instantáneo, metadatos y carátulas de alta calidad)
+        try {
+            val deezerResults = resolveViaDeezer(query, limit)
+            if (deezerResults.isNotEmpty()) return deezerResults
+        } catch (_: Exception) {}
+
+        // 2. Intentar iTunes API de Apple (Oficial, portadas 600x600)
+        try {
+            val itunesResults = resolveViaItunes(query, limit)
+            if (itunesResults.isNotEmpty()) return itunesResults
+        } catch (_: Exception) {}
+
+        // 3. Fallback a YouTube Web
         val list = mutableListOf<DownloadTrackItem>()
         try {
             val encoded = URLEncoder.encode(query, "UTF-8")
@@ -228,5 +241,101 @@ object SpotifyEmbedResolver {
         } catch (_: Exception) {
             180000L
         }
+    }
+
+    private fun resolveViaDeezer(query: String, limit: Int): List<DownloadTrackItem> {
+        val encoded = URLEncoder.encode(query, "UTF-8")
+        val url = "https://api.deezer.com/search?q=$encoded&limit=$limit"
+        val req = Request.Builder()
+            .url(url)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .build()
+
+        val resp = client.newCall(req).execute()
+        if (!resp.isSuccessful) {
+            resp.close()
+            return emptyList()
+        }
+        val bodyStr = resp.body?.string() ?: "{}"
+        resp.close()
+
+        val json = JSONObject(bodyStr)
+        val data = json.optJSONArray("data") ?: return emptyList()
+        val list = mutableListOf<DownloadTrackItem>()
+
+        for (i in 0 until data.length()) {
+            val item = data.getJSONObject(i)
+            val title = item.optString("title", "")
+            val artistObj = item.optJSONObject("artist")
+            val artist = artistObj?.optString("name", "Desconocido") ?: "Desconocido"
+            val albumObj = item.optJSONObject("album")
+            val album = albumObj?.optString("title", "") ?: ""
+            val cover = albumObj?.optString("cover_big", albumObj.optString("cover_medium", ""))
+            val durationSec = item.optLong("duration", 0L)
+            val trackId = item.optLong("id", 0L).toString()
+            val link = item.optString("link", "")
+
+            if (title.isNotBlank()) {
+                list.add(
+                    DownloadTrackItem(
+                        id = trackId,
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        durationMs = durationSec * 1000L,
+                        coverUrl = cover?.ifBlank { null },
+                        spotifyUrl = link
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    private fun resolveViaItunes(query: String, limit: Int): List<DownloadTrackItem> {
+        val encoded = URLEncoder.encode(query, "UTF-8")
+        val url = "https://itunes.apple.com/search?term=$encoded&media=music&entity=song&limit=$limit"
+        val req = Request.Builder()
+            .url(url)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            .build()
+
+        val resp = client.newCall(req).execute()
+        if (!resp.isSuccessful) {
+            resp.close()
+            return emptyList()
+        }
+        val bodyStr = resp.body?.string() ?: "{}"
+        resp.close()
+
+        val json = JSONObject(bodyStr)
+        val results = json.optJSONArray("results") ?: return emptyList()
+        val list = mutableListOf<DownloadTrackItem>()
+
+        for (i in 0 until results.length()) {
+            val item = results.getJSONObject(i)
+            val title = item.optString("trackName", "")
+            val artist = item.optString("artistName", "Desconocido")
+            val album = item.optString("collectionName", "")
+            val cover = item.optString("artworkUrl100", "").replace("100x100bb", "600x600bb")
+            val durationMs = item.optLong("trackTimeMillis", 0L)
+            val trackId = item.optLong("trackId", 0L).toString()
+            val trackViewUrl = item.optString("trackViewUrl", "")
+
+            if (title.isNotBlank()) {
+                list.add(
+                    DownloadTrackItem(
+                        id = trackId,
+                        title = title,
+                        artist = artist,
+                        album = album,
+                        durationMs = durationMs,
+                        coverUrl = cover.ifBlank { null },
+                        spotifyUrl = trackViewUrl
+                    )
+                )
+            }
+        }
+        return list
     }
 }
