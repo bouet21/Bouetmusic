@@ -21,6 +21,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.boumusic.player.ui.theme.ThemeManager.init(this)
 
         if (intent?.getBooleanExtra("open_stats", false) == true) {
             viewModel.setShowStatsDialog(true)
