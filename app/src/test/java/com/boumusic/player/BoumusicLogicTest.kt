@@ -61,4 +61,42 @@ class BoumusicLogicTest {
         assertEquals("Duración", SongSortOrder.DURATION_DESC.displayName)
         assertEquals("Más recientes", SongSortOrder.RECENT.displayName)
     }
+
+    @Test
+    fun testAudioMetadataHelper() {
+        val (artist, title) = com.boumusic.player.downloader.AudioMetadataHelper.parseFileNameMetadata("Queen - Bohemian Rhapsody.mp3")
+        assertEquals("Queen", artist)
+        assertEquals("Bohemian Rhapsody", title)
+
+        val (a2, t2) = com.boumusic.player.downloader.AudioMetadataHelper.parseFileNameMetadata("Alone Track.wav")
+        assertEquals("Desconocido", a2)
+        assertEquals("Alone Track", t2)
+    }
+
+    @Test
+    fun testDownloadModels() {
+        val track = com.boumusic.player.downloader.DownloadTrackItem(
+            id = "t1",
+            title = "Bohemian Rhapsody",
+            artist = "Queen",
+            album = "A Night at the Opera",
+            durationMs = 354000L
+        )
+        assertEquals("5:54", track.formattedDuration)
+        assertEquals("Queen • A Night at the Opera", track.displaySubtitle)
+
+        val destLocal = com.boumusic.player.downloader.DownloadDestination(
+            type = com.boumusic.player.downloader.DestinationType.LOCAL,
+            label = "Almacenamiento del Teléfono"
+        )
+        assertEquals(com.boumusic.player.downloader.DestinationType.LOCAL, destLocal.type)
+
+        val destSmb = com.boumusic.player.downloader.DownloadDestination(
+            type = com.boumusic.player.downloader.DestinationType.SMB,
+            label = "Servidor SMB",
+            remoteSubPath = "Musica"
+        )
+        assertEquals(com.boumusic.player.downloader.DestinationType.SMB, destSmb.type)
+        assertEquals("Musica", destSmb.remoteSubPath)
+    }
 }

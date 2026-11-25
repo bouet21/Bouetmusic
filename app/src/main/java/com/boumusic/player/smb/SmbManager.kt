@@ -230,4 +230,73 @@ class SmbManager(private val context: Context? = null) {
             try { connection?.close() } catch (ignored: Exception) {}
         }
     }
+
+    suspend fun uploadFile(
+        config: FtpConfig,
+        remoteDir: String,
+        localFile: File,
+        onProgress: (Float) -> Unit = {}
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        val client = getClient()
+        var connection: Connection? = null
+        var session: Session? = null
+        var share: DiskShare? = null
+        try {
+            val port = if (config.port > 0) config.port else 445
+            connection = client.connect(config.host, port)
+            session = connection.authenticate(getAuthContext(config))
+            share = session.connectShare(config.cleanSmbShare) as DiskShare
+
+            val subDirPath = extractSubPath(config, remoteDir)
+            if (subDirPath.isNotBlank() && !share.folderExists(subDirPath)) {
+                val parts = subDirPath.split('\\')
+                var currentPath = ""
+                for (p in parts) {
+                    if (p.isBlank()) continue
+                    currentPath = if (currentPath.isEmpty()) p else "$currentPath\\$p"
+                    if (!share.folderExists(currentPath)) {
+                        share.mkdir(currentPath)
+                    }
+                }
+            }
+
+            val remoteFilePath = if (subDirPath.isBlank()) localFile.name else "$subDirPath\\${localFile.name}"
+            val smbFile = share.openFile(
+                remoteFilePath,
+                EnumSet.of(AccessMask.GENERIC_WRITE),
+                EnumSet.of(FileAttributes.FILE_ATTRIBUTE_NORMAL),
+                SMB2ShareAccess.ALL,
+                SMB2CreateDisposition.FILE_OVERWRITE_IF,
+                null
+            )
+
+            val totalBytes = localFile.length()
+            val input = localFile.inputStream()
+            val output = smbFile.outputStream
+
+            input.use { inStream ->
+                output.use { outStream ->
+                    val buffer = ByteArray(64 * 1024)
+                    var bytesRead: Int
+                    var totalWritten = 0L
+                    while (inStream.read(buffer).also { bytesRead = it } != -1) {
+                        outStream.write(buffer, 0, bytesRead)
+                        totalWritten += bytesRead
+                        if (totalBytes > 0) {
+                            onProgress(totalWritten.toFloat() / totalBytes)
+                        }
+                    }
+                }
+            }
+            smbFile.close()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Result.failure(e)
+        } finally {
+            try { share?.close() } catch (_: Exception) {}
+            try { session?.close() } catch (_: Exception) {}
+            try { connection?.close() } catch (_: Exception) {}
+        }
+    }
 }

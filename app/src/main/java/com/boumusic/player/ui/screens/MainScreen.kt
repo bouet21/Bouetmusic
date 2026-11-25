@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.FolderOff
 import androidx.compose.material.icons.filled.Leaderboard
 import androidx.compose.material.icons.filled.MusicNote
@@ -508,6 +509,13 @@ fun MainScreen(
                             label = { Text("Servidores") },
                             colors = navBarColors()
                         )
+                        NavigationBarItem(
+                            selected = currentTab == 3,
+                            onClick = { viewModel.setCurrentTab(3) },
+                            icon = { Icon(Icons.Default.CloudDownload, contentDescription = "Descargas") },
+                            label = { Text("Descargas") },
+                            colors = navBarColors()
+                        )
                     }
                 }
             }
@@ -847,6 +855,10 @@ fun MainScreen(
                 2 -> {
                     // PESTAÑA SERVIDOR FTP
                     FtpScreen(viewModel = viewModel)
+                }
+                3 -> {
+                    // PESTAÑA DESCARGAS SPOTDL
+                    DownloaderScreen(viewModel = viewModel)
                 }
             }
 

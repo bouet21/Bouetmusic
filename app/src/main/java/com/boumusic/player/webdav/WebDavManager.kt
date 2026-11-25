@@ -6,8 +6,10 @@ import com.boumusic.player.model.FtpItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
@@ -296,6 +298,44 @@ class WebDavManager(private val context: Context? = null) {
             e.printStackTrace()
             destFile.delete()
             false
+        }
+    }
+
+    suspend fun uploadFile(
+        config: FtpConfig,
+        remoteDir: String,
+        localFile: File,
+        onProgress: (Float) -> Unit = {}
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            var url = buildUrl(config, remoteDir)
+            if (!url.endsWith("/")) url = "$url/"
+            url = "$url${localFile.name}"
+
+            val mediaType = "audio/mpeg".toMediaTypeOrNull()
+            val requestBody = localFile.asRequestBody(mediaType)
+            val requestBuilder = Request.Builder()
+                .url(url)
+                .put(requestBody)
+
+            val user = config.username.trim()
+            if (user.isNotBlank() && !user.equals("anonymous", ignoreCase = true)) {
+                requestBuilder.header("Authorization", Credentials.basic(user, config.password))
+            }
+
+            val response = client.newCall(requestBuilder.build()).execute()
+            if (response.isSuccessful || response.code in 200..299) {
+                response.close()
+                onProgress(1.0f)
+                Result.success(Unit)
+            } else {
+                val err = "Error WebDAV HTTP ${response.code}: ${response.message}"
+                response.close()
+                Result.failure(Exception(err))
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Result.failure(e)
         }
     }
 }

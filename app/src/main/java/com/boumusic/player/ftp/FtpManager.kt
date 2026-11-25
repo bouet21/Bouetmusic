@@ -514,4 +514,83 @@ class FtpManager(private val context: Context? = null) {
     }
 
     fun getActiveConfig(): FtpConfig? = activeConfig
+
+    suspend fun uploadSong(
+        config: FtpConfig,
+        remoteDir: String,
+        localFile: File,
+        onProgress: (Float) -> Unit = {}
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        if (config.isSmb) {
+            return@withContext smbManager.uploadFile(config, remoteDir, localFile, onProgress)
+        }
+        if (config.isWebDav) {
+            return@withContext webDavManager.uploadFile(config, remoteDir, localFile, onProgress)
+        }
+
+        var client: FTPClient? = null
+        try {
+            client = createFtpClient(config)
+            client.connectTimeout = 15000
+            client.defaultTimeout = 20000
+            client.connect(config.host, config.port)
+
+            val loginOk = if (config.username.isBlank()) {
+                client.login("anonymous", "")
+            } else {
+                client.login(config.username, config.password)
+            }
+            if (!loginOk) {
+                return@withContext Result.failure(Exception("Fallo de autenticación FTP: ${client.replyString}"))
+            }
+
+            configurePostLogin(client)
+            client.enterLocalPassiveMode()
+            client.setFileType(FTP.BINARY_FILE_TYPE)
+
+            val dir = remoteDir.trim().ifBlank { "/" }
+            if (dir != "/" && dir.isNotBlank()) {
+                val parts = dir.split('/').filter { it.isNotBlank() }
+                var curr = ""
+                for (p in parts) {
+                    curr = "$curr/$p"
+                    client.makeDirectory(curr)
+                }
+                client.changeWorkingDirectory(dir)
+            }
+
+            val targetName = localFile.name
+            val totalBytes = localFile.length()
+            val input = localFile.inputStream()
+            val output = client.storeFileStream(targetName)
+                ?: return@withContext Result.failure(Exception("No se pudo iniciar la subida a FTP (${client.replyString})"))
+
+            input.use { inStream ->
+                output.use { outStream ->
+                    val buffer = ByteArray(32 * 1024)
+                    var bytesRead: Int
+                    var totalWritten = 0L
+                    while (inStream.read(buffer).also { bytesRead = it } != -1) {
+                        outStream.write(buffer, 0, bytesRead)
+                        totalWritten += bytesRead
+                        if (totalBytes > 0) {
+                            onProgress(totalWritten.toFloat() / totalBytes)
+                        }
+                    }
+                }
+            }
+            val completed = client.completePendingCommand()
+            if (completed) Result.success(Unit) else Result.failure(Exception("Subida incompleta: ${client.replyString}"))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Result.failure(e)
+        } finally {
+            try {
+                if (client != null && client.isConnected) {
+                    client.logout()
+                    client.disconnect()
+                }
+            } catch (_: Exception) {}
+        }
+    }
 }

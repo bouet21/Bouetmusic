@@ -21,6 +21,13 @@ import com.boumusic.player.data.BackupManager
 import com.boumusic.player.data.HistoryAndStatsManager
 import com.boumusic.player.data.MusicRepository
 import com.boumusic.player.data.PlaylistRepository
+import com.boumusic.player.downloader.AndroidTrackDownloaderEngine
+import com.boumusic.player.downloader.DestinationType
+import com.boumusic.player.downloader.DownloadDestination
+import com.boumusic.player.downloader.DownloadStage
+import com.boumusic.player.downloader.DownloadTask
+import com.boumusic.player.downloader.DownloadTrackItem
+import com.boumusic.player.downloader.SpotifyEmbedResolver
 import com.boumusic.player.ftp.FtpManager
 import com.boumusic.player.ftp.FtpStreamBridge
 import com.boumusic.player.model.FtpConfig
@@ -319,6 +326,137 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun syncWithDevice(device: NetworkDevice) = networkSyncManager.syncWithDevice(device)
     fun scanSyncSubnet() = networkSyncManager.scanSubnet()
     fun connectSyncDirectly(ip: String, onDone: (Boolean, String) -> Unit) = networkSyncManager.connectDirectly(ip, onDone = onDone)
+
+    // DESCARGADOR SPOTDL & STREAMS
+    val downloaderEngine = AndroidTrackDownloaderEngine(
+        context = application,
+        ftpManager = ftpManager,
+        smbManager = ftpManager.smbManager,
+        pcDevicesProvider = { discoveredSyncDevices.value }
+    )
+
+    private val _downloaderQuery = MutableStateFlow("")
+    val downloaderQuery: StateFlow<String> = _downloaderQuery.asStateFlow()
+    fun setDownloaderQuery(q: String) { _downloaderQuery.value = q }
+
+    private val _isResolvingDownloads = MutableStateFlow(false)
+    val isResolvingDownloads: StateFlow<Boolean> = _isResolvingDownloads.asStateFlow()
+
+    private val _resolvedDownloadTracks = MutableStateFlow<List<DownloadTrackItem>>(emptyList())
+    val resolvedDownloadTracks: StateFlow<List<DownloadTrackItem>> = _resolvedDownloadTracks.asStateFlow()
+
+    private val _downloadResolutionError = MutableStateFlow<String?>(null)
+    val downloadResolutionError: StateFlow<String?> = _downloadResolutionError.asStateFlow()
+
+    private val _downloadTasks = MutableStateFlow<List<DownloadTask>>(emptyList())
+    val downloadTasks: StateFlow<List<DownloadTask>> = _downloadTasks.asStateFlow()
+
+    val availableDestinations: StateFlow<List<DownloadDestination>> = _savedFtpConfigs.map { servers ->
+        val list = mutableListOf<DownloadDestination>()
+        list.add(
+            DownloadDestination(
+                type = DestinationType.LOCAL,
+                label = "📁 Almacenamiento Local (Música)"
+            )
+        )
+        servers.forEach { s ->
+            val tag = if (s.isSmb) "🖥️ [SMB]" else if (s.isWebDav) "☁️ [WebDAV]" else "🌐 [FTP]"
+            val path = if (s.isSmb) s.cleanSmbShare else if (s.isWebDav) s.webDavPath else "/"
+            list.add(
+                DownloadDestination(
+                    type = if (s.isSmb) DestinationType.SMB else if (s.isWebDav) DestinationType.WEBDAV else DestinationType.FTP,
+                    label = "$tag ${s.name} ($path)",
+                    serverConfig = s,
+                    remoteSubPath = path
+                )
+            )
+        }
+        list
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.Eagerly,
+        listOf(DownloadDestination(DestinationType.LOCAL, "📁 Almacenamiento Local (Música)"))
+    )
+
+    private val _selectedDestination = MutableStateFlow<DownloadDestination>(
+        DownloadDestination(DestinationType.LOCAL, "📁 Almacenamiento Local (Música)")
+    )
+    val selectedDestination: StateFlow<DownloadDestination> = _selectedDestination.asStateFlow()
+    fun selectDestination(dest: DownloadDestination) { _selectedDestination.value = dest }
+
+    private var _currentSearchLimit = 30
+
+    fun searchOrResolveDownloads(query: String? = null, limit: Int = 30) {
+        val q = (query ?: _downloaderQuery.value).trim()
+        if (q.isBlank()) return
+        _currentSearchLimit = limit
+        viewModelScope.launch {
+            _isResolvingDownloads.value = true
+            _downloadResolutionError.value = null
+            try {
+                val results = SpotifyEmbedResolver.resolve(q, limit = limit)
+                if (results.isEmpty()) {
+                    _downloadResolutionError.value = "No se encontraron pistas para: '$q'"
+                } else {
+                    _resolvedDownloadTracks.value = results
+                }
+            } catch (e: Exception) {
+                _downloadResolutionError.value = "Error al resolver pistas: ${e.message ?: e.toString()}"
+            } finally {
+                _isResolvingDownloads.value = false
+            }
+        }
+    }
+
+    fun loadMoreSearchResults() {
+        val q = _downloaderQuery.value.trim()
+        if (q.isBlank() || _isResolvingDownloads.value) return
+        _currentSearchLimit += 25
+        searchOrResolveDownloads(q, limit = _currentSearchLimit)
+    }
+
+    fun startDownload(track: DownloadTrackItem, customDest: DownloadDestination? = null) {
+        val dest = customDest ?: _selectedDestination.value
+        val task = DownloadTask(
+            id = java.util.UUID.randomUUID().toString(),
+            track = track,
+            destination = dest,
+            stage = DownloadStage.QUEUED,
+            statusMessage = "En cola para descargar..."
+        )
+        _downloadTasks.value = listOf(task) + _downloadTasks.value
+
+        viewModelScope.launch {
+            downloaderEngine.executeDownload(task) { updated ->
+                val current = _downloadTasks.value.toMutableList()
+                val idx = current.indexOfFirst { it.id == updated.id }
+                if (idx != -1) {
+                    current[idx] = updated
+                    _downloadTasks.value = current
+                }
+            }
+            if (dest.type == DestinationType.LOCAL) {
+                loadSongs()
+            }
+        }
+    }
+
+    fun startDownloadAll(tracks: List<DownloadTrackItem>, customDest: DownloadDestination? = null) {
+        val dest = customDest ?: _selectedDestination.value
+        tracks.forEach { track ->
+            startDownload(track, dest)
+        }
+    }
+
+    fun clearCompletedDownloads() {
+        _downloadTasks.value = _downloadTasks.value.filter {
+            it.stage != DownloadStage.COMPLETED && it.stage != DownloadStage.ERROR
+        }
+    }
+
+    fun removeDownloadTask(taskId: String) {
+        _downloadTasks.value = _downloadTasks.value.filter { it.id != taskId }
+    }
 
     // Compartir canciones y listas (Bluetooth o QR)
     private val _shareOptionsTarget = MutableStateFlow<ShareTarget?>(null)
