@@ -15,6 +15,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
+import java.util.regex.Pattern
 
 class AndroidTrackDownloaderEngine(
     private val context: Context,
@@ -23,8 +24,14 @@ class AndroidTrackDownloaderEngine(
     private val pcDevicesProvider: () -> List<NetworkDevice> = { emptyList() }
 ) {
     private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(35, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .build()
+
+    private val fastClient = OkHttpClient.Builder()
+        .connectTimeout(4, TimeUnit.SECONDS)
+        .readTimeout(8, TimeUnit.SECONDS)
         .followRedirects(true)
         .build()
 
@@ -38,7 +45,7 @@ class AndroidTrackDownloaderEngine(
         val sanitizedBaseName = "${track.title} - ${track.artist}".replace(Regex("[\\\\/:*?\"<>|]"), "_")
         val tempFile = File(tempDir, "$sanitizedBaseName.mp3")
 
-        onUpdate(task.copy(stage = DownloadStage.SEARCHING_STREAM, statusMessage = "Localizando stream de audio..."))
+        onUpdate(task.copy(stage = DownloadStage.SEARCHING_STREAM, statusMessage = "Localizando audio de alta fidelidad..."))
 
         try {
             // 1. Intentar descargar a través de un PC en red local con Boumusic Desktop / SpotDL si está conectado
@@ -52,7 +59,7 @@ class AndroidTrackDownloaderEngine(
 
             // 2. Si no hay PC conectado o falló, resolver mediante stream directo web
             if (!downloaded || !tempFile.exists() || tempFile.length() < 1024) {
-                onUpdate(task.copy(stage = DownloadStage.SEARCHING_STREAM, statusMessage = "Resolviendo audio web de alta fidelidad..."))
+                onUpdate(task.copy(stage = DownloadStage.SEARCHING_STREAM, statusMessage = "Resolviendo pista de audio..."))
                 val streamUrl = resolveDirectStreamUrl(track)
 
                 if (streamUrl.isNullOrBlank()) {
@@ -61,12 +68,12 @@ class AndroidTrackDownloaderEngine(
                     return@withContext Result.failure(Exception(err))
                 }
 
-                onUpdate(task.copy(stage = DownloadStage.DOWNLOADING, statusMessage = "Descargando stream de audio..."))
+                onUpdate(task.copy(stage = DownloadStage.DOWNLOADING, statusMessage = "Descargando stream de audio...", progress = 0.05f))
                 val success = downloadStreamToFile(streamUrl, tempFile) { progress ->
                     onUpdate(
                         task.copy(
                             stage = DownloadStage.DOWNLOADING,
-                            progress = progress * 0.95f,
+                            progress = 0.05f + (progress * 0.90f),
                             statusMessage = "Descargando: ${(progress * 100).toInt()}%"
                         )
                     )
@@ -79,7 +86,7 @@ class AndroidTrackDownloaderEngine(
                 }
             }
 
-            onUpdate(task.copy(stage = DownloadStage.CONVERTING, progress = 0.96f, statusMessage = "Procesando metadatos..."))
+            onUpdate(task.copy(stage = DownloadStage.CONVERTING, progress = 0.96f, statusMessage = "Verificando archivo..."))
 
             // 3. Destino LOCAL (Almacenamiento del Teléfono)
             if (task.destination.type == DestinationType.LOCAL) {
@@ -173,7 +180,7 @@ class AndroidTrackDownloaderEngine(
             val q = URLEncoder.encode("${track.artist} - ${track.title}", "UTF-8")
             val url = "http://${pc.ip}:${pc.port}/api/download?query=$q"
             val req = Request.Builder().url(url).build()
-            val resp = client.newCall(req).execute()
+            val resp = fastClient.newCall(req).execute()
             if (resp.isSuccessful && resp.body != null) {
                 val body = resp.body!!
                 val total = body.contentLength()
@@ -207,21 +214,122 @@ class AndroidTrackDownloaderEngine(
     }
 
     private fun resolveDirectStreamUrl(track: DownloadTrackItem): String? {
+        // 1. Si la URL ya es un stream HTTP directo
+        if (track.spotifyUrl.startsWith("http") && (track.spotifyUrl.endsWith(".mp3") || track.spotifyUrl.endsWith(".m4a"))) {
+            return track.spotifyUrl
+        }
+
+        // 2. Método principal y ultra rápido: Extractor directo con conversión a MP3
+        resolveViaLoader(track)?.let { return it }
+
+        // 3. Método secundario: Piped API con timeout corto
+        resolveViaPipedInstances(track)?.let { return it }
+
+        // 4. Método terciario: Invidious API con timeout corto
+        resolveViaInvidiousInstances(track)?.let { return it }
+
+        return null
+    }
+
+    private fun resolveViaLoader(track: DownloadTrackItem): String? {
+        val videoUrl = when {
+            track.spotifyUrl.contains("youtube.com") || track.spotifyUrl.contains("youtu.be") -> {
+                track.spotifyUrl
+            }
+            track.id.length in 10..12 && !track.id.contains("-") -> {
+                "https://www.youtube.com/watch?v=${track.id}"
+            }
+            else -> {
+                val vid = resolveYouTubeVideoId("${track.artist} - ${track.title} audio")
+                if (vid != null) "https://www.youtube.com/watch?v=$vid" else null
+            }
+        } ?: return null
+
+        try {
+            val encodedYt = URLEncoder.encode(videoUrl, "UTF-8")
+            val initUrl = "https://loader.to/ajax/download.php?format=mp3&url=$encodedYt"
+            val initReq = Request.Builder()
+                .url(initUrl)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Referer", "https://loader.to/")
+                .build()
+
+            val initResp = fastClient.newCall(initReq).execute()
+            if (!initResp.isSuccessful || initResp.body == null) {
+                initResp.close()
+                return null
+            }
+            val initJson = JSONObject(initResp.body!!.string())
+            initResp.close()
+
+            val progressUrl = initJson.optString("progress_url", "")
+            if (progressUrl.isBlank()) return null
+
+            // Esperar resolución del archivo MP3
+            for (attempt in 0 until 8) {
+                Thread.sleep(1100)
+                val progReq = Request.Builder()
+                    .url(progressUrl)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                    .build()
+                val progResp = fastClient.newCall(progReq).execute()
+                if (progResp.isSuccessful && progResp.body != null) {
+                    val pJson = JSONObject(progResp.body!!.string())
+                    progResp.close()
+                    val downloadUrl = pJson.optString("download_url", "")
+                    if (downloadUrl.isNotBlank() && downloadUrl.startsWith("http")) {
+                        return downloadUrl
+                    }
+                    val prog = pJson.optInt("progress", 0)
+                    if (prog >= 1000 && downloadUrl.isNotBlank()) {
+                        return downloadUrl
+                    }
+                } else {
+                    progResp.close()
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    private fun resolveYouTubeVideoId(query: String): String? {
+        try {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val sUrl = "https://www.youtube.com/results?search_query=$encoded"
+            val req = Request.Builder()
+                .url(sUrl)
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Accept-Language", "en-US,en;q=0.9")
+                .build()
+            val resp = fastClient.newCall(req).execute()
+            if (resp.isSuccessful && resp.body != null) {
+                val html = resp.body!!.string()
+                resp.close()
+                val matcher = Pattern.compile("\"videoId\":\"([a-zA-Z0-9_-]{11})\"").matcher(html)
+                if (matcher.find()) {
+                    return matcher.group(1)
+                }
+            } else {
+                resp.close()
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    private fun resolveViaPipedInstances(track: DownloadTrackItem): String? {
         val query = "${track.artist} ${track.title} audio"
         val queryEncoded = URLEncoder.encode(query, "UTF-8")
-
-        // 1. Fallback mediante servicios públicos de extracción de stream de audio
         val endpoints = listOf(
-            "https://pipedapi.kavin.rocks",
-            "https://api.piped.privacydev.net",
-            "https://pipedapi.adminforge.de"
+            "https://cf.piped.video",
+            "https://piped.video",
+            "https://pipedapi.tokhmi.xyz"
         )
 
         for (ep in endpoints) {
             try {
-                val sUrl = "$ep/search?q=$queryEncoded&filter=music_songs"
+                val sUrl = "$ep/search?q=$queryEncoded"
                 val sReq = Request.Builder().url(sUrl).build()
-                val sResp = client.newCall(sReq).execute()
+                val sResp = fastClient.newCall(sReq).execute()
                 if (sResp.isSuccessful && sResp.body != null) {
                     val sJson = JSONObject(sResp.body!!.string())
                     sResp.close()
@@ -233,7 +341,7 @@ class AndroidTrackDownloaderEngine(
 
                         if (videoId.isNotBlank()) {
                             val streamReq = Request.Builder().url("$ep/streams/$videoId").build()
-                            val streamResp = client.newCall(streamReq).execute()
+                            val streamResp = fastClient.newCall(streamReq).execute()
                             if (streamResp.isSuccessful && streamResp.body != null) {
                                 val streamJson = JSONObject(streamResp.body!!.string())
                                 streamResp.close()
@@ -243,20 +351,64 @@ class AndroidTrackDownloaderEngine(
                                     val directUrl = best.optString("url", "")
                                     if (directUrl.isNotBlank()) return directUrl
                                 }
+                            } else {
+                                streamResp.close()
                             }
-                            streamResp.close()
                         }
                     }
+                } else {
+                    sResp.close()
                 }
-                sResp.close()
             } catch (_: Exception) {}
         }
+        return null
+    }
 
-        // Si la URL original ya es un stream HTTP directo
-        if (track.spotifyUrl.startsWith("http") && (track.spotifyUrl.endsWith(".mp3") || track.spotifyUrl.endsWith(".m4a"))) {
-            return track.spotifyUrl
+    private fun resolveViaInvidiousInstances(track: DownloadTrackItem): String? {
+        val query = "${track.artist} ${track.title}"
+        val queryEncoded = URLEncoder.encode(query, "UTF-8")
+        val instances = listOf(
+            "https://yewtu.be",
+            "https://invidious.nerdvpn.de",
+            "https://inv.nadeko.net"
+        )
+
+        for (inst in instances) {
+            try {
+                val sUrl = "$inst/api/v1/search?q=$queryEncoded&type=video"
+                val sReq = Request.Builder().url(sUrl).build()
+                val sResp = fastClient.newCall(sReq).execute()
+                if (sResp.isSuccessful && sResp.body != null) {
+                    val arr = org.json.JSONArray(sResp.body!!.string())
+                    sResp.close()
+                    if (arr.length() > 0) {
+                        val vid = arr.getJSONObject(0).optString("videoId", "")
+                        if (vid.isNotBlank()) {
+                            val vReq = Request.Builder().url("$inst/api/v1/videos/$vid").build()
+                            val vResp = fastClient.newCall(vReq).execute()
+                            if (vResp.isSuccessful && vResp.body != null) {
+                                val vJson = JSONObject(vResp.body!!.string())
+                                vResp.close()
+                                val adaptive = vJson.optJSONArray("adaptiveFormats")
+                                if (adaptive != null) {
+                                    for (i in 0 until adaptive.length()) {
+                                        val fmt = adaptive.getJSONObject(i)
+                                        if (fmt.optString("type", "").contains("audio")) {
+                                            val u = fmt.optString("url", "")
+                                            if (u.isNotBlank()) return u
+                                        }
+                                    }
+                                }
+                            } else {
+                                vResp.close()
+                            }
+                        }
+                    }
+                } else {
+                    sResp.close()
+                }
+            } catch (_: Exception) {}
         }
-
         return null
     }
 
@@ -264,7 +416,7 @@ class AndroidTrackDownloaderEngine(
         try {
             val req = Request.Builder()
                 .url(url)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
                 .build()
 
             val resp = client.newCall(req).execute()

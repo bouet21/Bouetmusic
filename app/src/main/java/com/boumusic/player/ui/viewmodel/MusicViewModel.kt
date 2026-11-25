@@ -416,6 +416,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun startDownload(track: DownloadTrackItem, customDest: DownloadDestination? = null) {
+        val active = _downloadTasks.value.firstOrNull { it.track.id == track.id }
+        if (active != null && (active.stage == DownloadStage.QUEUED || active.stage == DownloadStage.SEARCHING_STREAM || active.stage == DownloadStage.DOWNLOADING || active.stage == DownloadStage.UPLOADING)) {
+            return
+        }
+
         val dest = customDest ?: _selectedDestination.value
         val task = DownloadTask(
             id = java.util.UUID.randomUUID().toString(),
@@ -424,7 +429,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             stage = DownloadStage.QUEUED,
             statusMessage = "En cola para descargar..."
         )
-        _downloadTasks.value = listOf(task) + _downloadTasks.value
+        val filtered = _downloadTasks.value.filter { it.track.id != track.id }
+        _downloadTasks.value = listOf(task) + filtered
 
         viewModelScope.launch {
             downloaderEngine.executeDownload(task) { updated ->

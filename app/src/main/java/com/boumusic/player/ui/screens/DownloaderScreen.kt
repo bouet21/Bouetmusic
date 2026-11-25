@@ -429,8 +429,10 @@ fun DownloaderScreen(
                 }
 
                 items(resolvedTracks, key = { it.id }) { track ->
+                    val trackTask = tasks.firstOrNull { it.track.id == track.id }
                     AndroidResolvedTrackCard(
                         track = track,
+                        task = trackTask,
                         onDownload = { viewModel.startDownload(track) }
                     )
                 }
@@ -507,28 +509,53 @@ fun DownloaderScreen(
 @Composable
 private fun AndroidResolvedTrackCard(
     track: DownloadTrackItem,
+    task: DownloadTask?,
     onDownload: () -> Unit
 ) {
+    val context = LocalContext.current
+    val isQueued = task != null && (task.stage == DownloadStage.QUEUED || task.stage == DownloadStage.SEARCHING_STREAM)
+    val isDownloading = task != null && task.stage == DownloadStage.DOWNLOADING
+    val isUploading = task != null && task.stage == DownloadStage.UPLOADING
+    val isCompleted = task != null && task.stage == DownloadStage.COMPLETED
+    val isError = task != null && task.stage == DownloadStage.ERROR
+
+    val cardBorderColor = when {
+        isCompleted -> Color(0xFF4CAF50).copy(alpha = 0.6f)
+        isError -> Color(0xFFFF5252).copy(alpha = 0.6f)
+        isDownloading || isUploading || isQueued -> NeonCyan.copy(alpha = 0.5f)
+        else -> DarkCardBorder
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(DarkSurface)
-            .border(1.dp, DarkCardBorder, RoundedCornerShape(10.dp))
-            .padding(8.dp),
+            .border(1.dp, cardBorderColor, RoundedCornerShape(10.dp))
+            .clickable {
+                if (task == null || isError) {
+                    Toast.makeText(context, "Añadida a descargas: ${track.title}", Toast.LENGTH_SHORT).show()
+                    onDownload()
+                } else if (isDownloading) {
+                    Toast.makeText(context, "Descargando: ${(task.progress * 100).toInt()}%", Toast.LENGTH_SHORT).show()
+                } else if (isCompleted) {
+                    Toast.makeText(context, "Canción descargada con éxito", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Carátula
         Box(
             modifier = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(6.dp))
+                .size(46.dp)
+                .clip(RoundedCornerShape(8.dp))
                 .background(DarkSurfaceVariant),
             contentAlignment = Alignment.Center
         ) {
             if (!track.coverUrl.isNullOrBlank()) {
                 AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
+                    model = ImageRequest.Builder(context)
                         .data(track.coverUrl)
                         .crossfade(true)
                         .build(),
@@ -537,11 +564,11 @@ private fun AndroidResolvedTrackCard(
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
-                Icon(Icons.Default.MusicNote, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.MusicNote, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(22.dp))
             }
         }
 
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -560,9 +587,34 @@ private fun AndroidResolvedTrackCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            if (task != null) {
+                Spacer(modifier = Modifier.height(3.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val statusText = when {
+                        isCompleted -> "✅ Guardado en ${task.destination.label}"
+                        isError -> "❌ ${task.error ?: "Error al descargar"}"
+                        isUploading -> "☁️ Subiendo a ${task.destination.label}..."
+                        isDownloading -> "⬇️ Descargando ${(task.progress * 100).toInt()}%"
+                        else -> "⏳ En cola de descarga"
+                    }
+                    val statusColor = when {
+                        isCompleted -> Color(0xFF81C784)
+                        isError -> Color(0xFFFF8A80)
+                        else -> NeonCyan
+                    }
+                    Text(
+                        text = statusText,
+                        color = statusColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.width(6.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
         Text(
             text = track.formattedDuration,
@@ -570,16 +622,59 @@ private fun AndroidResolvedTrackCard(
             fontSize = 11.sp
         )
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(10.dp))
 
-        IconButton(
-            onClick = onDownload,
+        // Botón táctil optimizado sin problemas de target size
+        val buttonBg = when {
+            isCompleted -> Color(0xFF4CAF50).copy(alpha = 0.2f)
+            isError -> Color(0xFFFF5252).copy(alpha = 0.2f)
+            isDownloading || isUploading || isQueued -> NeonCyan.copy(alpha = 0.2f)
+            else -> NeonCyan.copy(alpha = 0.15f)
+        }
+
+        Box(
             modifier = Modifier
-                .size(34.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(NeonCyan.copy(alpha = 0.15f))
+                .size(40.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(buttonBg)
+                .clickable {
+                    if (task == null || isError) {
+                        Toast.makeText(context, "Añadida a descargas: ${track.title}", Toast.LENGTH_SHORT).show()
+                        onDownload()
+                    } else if (isDownloading) {
+                        Toast.makeText(context, "Descargando: ${(task.progress * 100).toInt()}%", Toast.LENGTH_SHORT).show()
+                    } else if (isCompleted) {
+                        Toast.makeText(context, "Canción descargada con éxito", Toast.LENGTH_SHORT).show()
+                    }
+                },
+            contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Download, contentDescription = "Descargar", tint = NeonCyan, modifier = Modifier.size(18.dp))
+            when {
+                isCompleted -> {
+                    Icon(Icons.Default.CheckCircle, contentDescription = "Descargado", tint = Color(0xFF4CAF50), modifier = Modifier.size(20.dp))
+                }
+                isError -> {
+                    Icon(Icons.Default.Refresh, contentDescription = "Reintentar", tint = Color(0xFFFF5252), modifier = Modifier.size(20.dp))
+                }
+                isDownloading -> {
+                    CircularProgressIndicator(
+                        progress = { task.progress },
+                        modifier = Modifier.size(20.dp),
+                        color = NeonCyan,
+                        strokeWidth = 2.5.dp
+                    )
+                }
+                isQueued || isUploading -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        color = NeonCyan,
+                        strokeWidth = 2.dp
+                    )
+                }
+                else -> {
+                    Icon(Icons.Default.Download, contentDescription = "Descargar", tint = NeonCyan, modifier = Modifier.size(20.dp))
+                }
+            }
         }
     }
 }
