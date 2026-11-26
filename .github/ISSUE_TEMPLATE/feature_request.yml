@@ -1,0 +1,19 @@
+name: Sugerencia de Mejora (Feature Request)
+description: Propón una nueva funcionalidad para Boumusic Android
+title: "[FEAT] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Propuesta de funcionalidad
+      description: ¿Qué nueva característica te gustaría ver en la aplicación?
+    validations:
+      required: true
+  - type: textarea
+    id: usecase
+    attributes:
+      label: Caso de uso
+      description: ¿En qué situación o para qué tipo de música/servidor sería útil?
+    validations:
+      required: true

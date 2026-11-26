@@ -1,0 +1,41 @@
+name: Reporte de Error (Bug)
+description: Informa de un problema o fallo en Boumusic para Android
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Gracias por reportar este problema para mejorar Boumusic en Android.
+  - type: input
+    id: version
+    attributes:
+      label: Versión de la App
+      description: ¿Qué versión estás usando (ej. v2.0.1)?
+      placeholder: v2.0.1
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Dispositivo y Versión de Android
+      description: Ej. Samsung Galaxy S23 (Android 14) / Xiaomi Redmi Note 12 (Android 13)
+      placeholder: Marca, modelo y versión de Android
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción del fallo
+      description: Explica qué ocurre de manera clara.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      value: |
+        1. Abrir la app
+        2. Tocar en '...'
+        3. Se produce el fallo
+    validations:
+      required: true
