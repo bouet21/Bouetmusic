@@ -106,16 +106,26 @@ class AndroidTrackDownloaderEngine(
             // 3. Destino LOCAL (Almacenamiento del Teléfono)
             if (task.destination.type == DestinationType.LOCAL) {
                 val musicDir = getTargetMusicDirectory()
-                if (!musicDir.exists()) musicDir.mkdirs()
                 val targetFile = File(musicDir, tempFile.name)
-                tempFile.copyTo(targetFile, overwrite = true)
-                tempFile.delete()
+                val finalFile = try {
+                    if (!musicDir.exists()) musicDir.mkdirs()
+                    tempFile.copyTo(targetFile, overwrite = true)
+                    tempFile.delete()
+                    targetFile
+                } catch (_: Exception) {
+                    val appMusic = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+                        ?: File(context.filesDir, "Music").apply { mkdirs() }
+                    val fallbackFile = File(appMusic, tempFile.name)
+                    tempFile.copyTo(fallbackFile, overwrite = true)
+                    tempFile.delete()
+                    fallbackFile
+                }
 
-                val mimeType = if (targetFile.name.endsWith(".m4a")) "audio/mp4" else "audio/mpeg"
+                val mimeType = if (finalFile.name.endsWith(".m4a")) "audio/mp4" else "audio/mpeg"
                 // Notificar al escáner de medios de Android para que aparezca en el reproductor
                 MediaScannerConnection.scanFile(
                     context,
-                    arrayOf(targetFile.absolutePath),
+                    arrayOf(finalFile.absolutePath),
                     arrayOf(mimeType),
                     null
                 )
@@ -125,10 +135,10 @@ class AndroidTrackDownloaderEngine(
                         stage = DownloadStage.COMPLETED,
                         progress = 1.0f,
                         statusMessage = "Guardado en almacenamiento local",
-                        outputFile = targetFile
+                        outputFile = finalFile
                     )
                 )
-                return@withContext Result.success(targetFile)
+                return@withContext Result.success(finalFile)
             }
 
             // 4. Destino REMOTO (SMB, FTP o WebDAV)
@@ -294,17 +304,18 @@ class AndroidTrackDownloaderEngine(
     }
 
     private fun resolveViaLoader(track: DownloadTrackItem): String? {
-        val videoUrl = when {
-            track.spotifyUrl.contains("youtube.com") || track.spotifyUrl.contains("youtu.be") -> {
-                track.spotifyUrl
-            }
-            track.id.length in 10..12 && !track.id.contains("-") -> {
-                "https://www.youtube.com/watch?v=${track.id}"
-            }
-            else -> {
-                val vid = resolveYouTubeVideoId("${track.artist} - ${track.title} audio")
-                if (vid != null) "https://www.youtube.com/watch?v=$vid" else null
-            }
+        val isRealYoutubeUrl = track.spotifyUrl.contains("youtube.com") ||
+                               track.spotifyUrl.contains("youtu.be") ||
+                               track.album == "YouTube Stream"
+
+        val videoUrl = if (isRealYoutubeUrl) {
+            if (track.spotifyUrl.startsWith("http")) track.spotifyUrl else "https://www.youtube.com/watch?v=${track.id}"
+        } else {
+            val queryClean = "${track.artist} - ${track.title} audio".trim(' ', '-')
+            val vid = resolveYouTubeVideoId(queryClean)
+                ?: resolveYouTubeVideoId("${track.artist} - ${track.title}")
+                ?: resolveYouTubeVideoId("${track.title} ${track.artist}")
+            if (vid != null) "https://www.youtube.com/watch?v=$vid" else null
         } ?: return null
 
         try {
@@ -327,8 +338,8 @@ class AndroidTrackDownloaderEngine(
             val progressUrl = initJson.optString("progress_url", "")
             if (progressUrl.isBlank()) return null
 
-            // Esperar resolución del archivo MP3
-            for (attempt in 0 until 8) {
+            // Esperar resolución del archivo MP3 (hasta 18 intentos con 1.1s)
+            for (attempt in 0 until 18) {
                 Thread.sleep(1100)
                 val progReq = Request.Builder()
                     .url(progressUrl)
@@ -355,26 +366,44 @@ class AndroidTrackDownloaderEngine(
     }
 
     private fun resolveYouTubeVideoId(query: String): String? {
-        try {
-            val encoded = URLEncoder.encode(query, "UTF-8")
-            val sUrl = "https://www.youtube.com/results?search_query=$encoded"
-            val req = Request.Builder()
-                .url(sUrl)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                .header("Accept-Language", "en-US,en;q=0.9")
-                .build()
-            val resp = fastClient.newCall(req).execute()
-            if (resp.isSuccessful && resp.body != null) {
-                val html = resp.body!!.string()
-                resp.close()
-                val matcher = Pattern.compile("\"videoId\":\"([a-zA-Z0-9_-]{11})\"").matcher(html)
-                if (matcher.find()) {
-                    return matcher.group(1)
+        val candidates = listOf(
+            query,
+            query.replace(" audio", ""),
+            query.replace(" audio", " oficial")
+        ).distinct()
+
+        for (q in candidates) {
+            try {
+                val encoded = URLEncoder.encode(q, "UTF-8")
+                val sUrl = "https://www.youtube.com/results?search_query=$encoded"
+                val req = Request.Builder()
+                    .url(sUrl)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .header("Accept-Language", "es-ES,es;q=0.9,en;q=0.8")
+                    .header("Cookie", "SOCS=CAESEwgDEgk2MTQ5Mjc4NjcaAmVzIAEaBgiA_LyaBg; CONSENT=PENDING+999")
+                    .build()
+                val resp = fastClient.newCall(req).execute()
+                if (resp.isSuccessful && resp.body != null) {
+                    val html = resp.body!!.string()
+                    resp.close()
+                    val patterns = listOf(
+                        Pattern.compile("\"videoId\":\"([a-zA-Z0-9_-]{11})\""),
+                        Pattern.compile("/watch\\?v=([a-zA-Z0-9_-]{11})")
+                    )
+                    for (pattern in patterns) {
+                        val matcher = pattern.matcher(html)
+                        if (matcher.find()) {
+                            val vid = matcher.group(1)
+                            if (!vid.isNullOrBlank()) {
+                                return vid
+                            }
+                        }
+                    }
+                } else {
+                    resp.close()
                 }
-            } else {
-                resp.close()
-            }
-        } catch (_: Exception) {}
+            } catch (_: Exception) {}
+        }
         return null
     }
 
