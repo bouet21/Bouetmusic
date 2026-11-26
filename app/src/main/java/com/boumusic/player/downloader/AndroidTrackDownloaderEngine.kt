@@ -43,14 +43,14 @@ class AndroidTrackDownloaderEngine(
     ): Result<File?> = withContext(Dispatchers.IO) {
         val track = task.track
         val sanitizedBaseName = "${track.title} - ${track.artist}".replace(Regex("[\\\\/:*?\"<>|]"), "_")
-        val tempFile = File(tempDir, "$sanitizedBaseName.mp3")
 
         onUpdate(task.copy(stage = DownloadStage.SEARCHING_STREAM, statusMessage = "Localizando audio de alta fidelidad..."))
 
         try {
-            // 1. Intentar descargar a través de un PC en red local con Boumusic Desktop / SpotDL si está conectado
+            // 1. Intentar descargar a través de un PC en red local con Boumusic Desktop si está conectado
             val pcDevice = pcDevicesProvider().firstOrNull { it.type.equals("PC", ignoreCase = true) }
             var downloaded = false
+            var tempFile = File(tempDir, "$sanitizedBaseName.mp3")
 
             if (pcDevice != null) {
                 onUpdate(task.copy(stage = DownloadStage.SEARCHING_STREAM, statusMessage = "Conectando con PC (${pcDevice.name})..."))
@@ -60,16 +60,19 @@ class AndroidTrackDownloaderEngine(
             // 2. Si no hay PC conectado o falló, resolver mediante stream directo web
             if (!downloaded || !tempFile.exists() || tempFile.length() < 1024) {
                 onUpdate(task.copy(stage = DownloadStage.SEARCHING_STREAM, statusMessage = "Resolviendo pista de audio..."))
-                val streamUrl = resolveDirectStreamUrl(track)
+                val resolved = resolveDirectStreamUrl(track)
 
-                if (streamUrl.isNullOrBlank()) {
+                if (resolved == null) {
                     val err = "No se pudo obtener el enlace de descarga de la pista"
                     onUpdate(task.copy(stage = DownloadStage.ERROR, error = err))
                     return@withContext Result.failure(Exception(err))
                 }
 
-                onUpdate(task.copy(stage = DownloadStage.DOWNLOADING, statusMessage = "Descargando stream de audio...", progress = 0.05f))
-                val success = downloadStreamToFile(streamUrl, tempFile) { progress ->
+                val ext = resolved.extension
+                tempFile = File(tempDir, "$sanitizedBaseName.$ext")
+
+                onUpdate(task.copy(stage = DownloadStage.DOWNLOADING, statusMessage = "Descargando audio de alta calidad...", progress = 0.05f))
+                var success = downloadStreamToFile(resolved.streamUrl, tempFile) { progress ->
                     onUpdate(
                         task.copy(
                             stage = DownloadStage.DOWNLOADING,
@@ -77,6 +80,18 @@ class AndroidTrackDownloaderEngine(
                             statusMessage = "Descargando: ${(progress * 100).toInt()}%"
                         )
                     )
+                }
+
+                if (!success && resolved.fallbackUrl.isNotBlank() && resolved.fallbackUrl != resolved.streamUrl) {
+                    success = downloadStreamToFile(resolved.fallbackUrl, tempFile) { progress ->
+                        onUpdate(
+                            task.copy(
+                                stage = DownloadStage.DOWNLOADING,
+                                progress = 0.05f + (progress * 0.90f),
+                                statusMessage = "Descargando (calidad estándar): ${(progress * 100).toInt()}%"
+                            )
+                        )
+                    }
                 }
 
                 if (!success || !tempFile.exists() || tempFile.length() < 1024) {
@@ -96,11 +111,12 @@ class AndroidTrackDownloaderEngine(
                 tempFile.copyTo(targetFile, overwrite = true)
                 tempFile.delete()
 
+                val mimeType = if (targetFile.name.endsWith(".m4a")) "audio/mp4" else "audio/mpeg"
                 // Notificar al escáner de medios de Android para que aparezca en el reproductor
                 MediaScannerConnection.scanFile(
                     context,
                     arrayOf(targetFile.absolutePath),
-                    arrayOf("audio/mpeg"),
+                    arrayOf(mimeType),
                     null
                 )
 
@@ -213,20 +229,66 @@ class AndroidTrackDownloaderEngine(
         false
     }
 
-    private fun resolveDirectStreamUrl(track: DownloadTrackItem): String? {
+    private fun resolveDirectStreamUrl(track: DownloadTrackItem): DirectStreamResult? {
         // 1. Si la URL ya es un stream HTTP directo
         if (track.spotifyUrl.startsWith("http") && (track.spotifyUrl.endsWith(".mp3") || track.spotifyUrl.endsWith(".m4a"))) {
-            return track.spotifyUrl
+            return DirectStreamResult(
+                streamUrl = track.spotifyUrl,
+                fallbackUrl = track.spotifyUrl,
+                title = track.title,
+                artist = track.artist,
+                album = "",
+                coverUrl = "",
+                extension = if (track.spotifyUrl.endsWith(".m4a")) "m4a" else "mp3"
+            )
         }
 
-        // 2. Método principal y ultra rápido: Extractor directo con conversión a MP3
-        resolveViaLoader(track)?.let { return it }
+        // 2. Stream directo de alta calidad (320kbps / 160kbps) mediante CDN sin bloqueos
+        try {
+            val direct = HighFidelityAudioResolver.resolveDirectStream(track.artist, track.title)
+            if (direct != null && direct.streamUrl.isNotBlank()) {
+                return direct
+            }
+        } catch (_: Exception) {}
 
-        // 3. Método secundario: Piped API con timeout corto
-        resolveViaPipedInstances(track)?.let { return it }
+        // 3. Método secundario: Extractor directo con conversión a MP3
+        resolveViaLoader(track)?.let { url ->
+            return DirectStreamResult(
+                streamUrl = url,
+                fallbackUrl = url,
+                title = track.title,
+                artist = track.artist,
+                album = "",
+                coverUrl = "",
+                extension = "mp3"
+            )
+        }
 
-        // 4. Método terciario: Invidious API con timeout corto
-        resolveViaInvidiousInstances(track)?.let { return it }
+        // 4. Método terciario: Piped API con timeout corto
+        resolveViaPipedInstances(track)?.let { url ->
+            return DirectStreamResult(
+                streamUrl = url,
+                fallbackUrl = url,
+                title = track.title,
+                artist = track.artist,
+                album = "",
+                coverUrl = "",
+                extension = if (url.contains(".m4a") || url.contains("mime=audio%2Fmp4")) "m4a" else "mp3"
+            )
+        }
+
+        // 5. Método cuaternario: Invidious API con timeout corto
+        resolveViaInvidiousInstances(track)?.let { url ->
+            return DirectStreamResult(
+                streamUrl = url,
+                fallbackUrl = url,
+                title = track.title,
+                artist = track.artist,
+                album = "",
+                coverUrl = "",
+                extension = if (url.contains(".m4a") || url.contains("mime=audio%2Fmp4")) "m4a" else "mp3"
+            )
+        }
 
         return null
     }
