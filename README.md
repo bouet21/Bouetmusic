@@ -1,13 +1,13 @@
 # 🎵 Boumusic — Reproductor de Música Nativo para Android
 
-[![Release](https://img.shields.io/github/v/release/bouet21/Bouetmusic?color=00F5D4&label=Versi%C3%B3n%20v2.0.1)](https://github.com/bouet21/Bouetmusic/releases/latest)
+[![Release](https://img.shields.io/github/v/release/bouet21/Bouetmusic?color=00F5D4&label=Versi%C3%B3n%20v2.1.0)](https://github.com/bouet21/Bouetmusic/releases/latest)
 [![Android](https://img.shields.io/badge/Android-7.0%2B%20(API%2024%2B)-7B2CBF)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0-blue)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-brightgreen)](https://developer.android.com/jetpack/compose)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-blueviolet)](https://github.com/bouet21/Bouetmusic/actions)
 [![No Ads](https://img.shields.io/badge/Publicidad-0%25%20(Sin%20Anuncios)-success)](#)
 
-**Boumusic** es un reproductor de música nativo para Android diseñado desde cero para disfrutar de tu música local y remota con la máxima fidelidad, interfaz futurista personalizable con temas oscuros neón, cero anuncios y herramientas de nivel profesional: **personalización completa de interfaz (presets, paletas de color a medida, fondos propios y control de animaciones)**, **descargador integrado SpotDL con guardado directo a SMB, FTP y memoria interna**, **soporte para carpetas compartidas de Windows y Linux (SMB2/SMB3), servidores WebDAV y FTP/FTPS con streaming directo y caché**, **crossfade configurable y normalización de volumen (Loudness Enhancer)**, **filtros de biblioteca con lista negra de carpetas y exclusión de audios de WhatsApp**, **historial de reproducciones y estadísticas tipo Wrapped**, y **sincronización automática en red local con Boumusic Desktop**.
+**Boumusic** es un reproductor de música nativo para Android diseñado desde cero para disfrutar de tu música local y remota con la máxima fidelidad, interfaz futurista personalizable con temas oscuros neón, cero anuncios y herramientas de nivel profesional: **soporte para servidores Subsonic / Navidrome / Jellyfin**, **personalización completa de interfaz (presets, paletas de color a medida, fondos propios y control de animaciones)**, **descargador integrado SpotDL con guardado directo a SMB, FTP y memoria interna**, **soporte para carpetas compartidas de Windows y Linux (SMB2/SMB3), servidores WebDAV y FTP/FTPS con streaming directo y caché**, **crossfade configurable y normalización de volumen (Loudness Enhancer)**, **filtros de biblioteca con lista negra de carpetas y exclusión de audios de WhatsApp**, **historial de reproducciones y estadísticas tipo Wrapped**, y **sincronización automática en red local con Boumusic Desktop**.
 
 ---
 
@@ -15,12 +15,22 @@
 
 Descarga siempre la versión más reciente en formato APK lista para instalar en tu móvil:
 
-👉 **[Descargar Boumusic v2.0.1 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v2.0.1/Boumusic.apk)**  
+👉 **[Descargar Boumusic v2.1.0 (APK)](https://github.com/bouet21/Bouetmusic/releases/download/v2.1.0/Boumusic.apk)**  
 *(o visita todas las versiones en la sección de [Releases de GitHub](https://github.com/bouet21/Bouetmusic/releases))*
 
 ---
 
-## 🎨 Novedades Principales de la v2.0.1: Personalización Completa de la Interfaz
+## 📡 Novedades Principales de la v2.1.0: Ecosistema Multiplataforma y Subsonic
+
+* **Soporte Protocolo Subsonic / Navidrome**:
+  * Integración en el modelo de servidores remotos compatible con Boumusic Desktop.
+  * Interoperabilidad en backup JSON y sincronización LAN directa.
+* **Capturas y Documentación Visual Sincronizada**:
+  * Guías visuales y capturas compartidas en `docs/screenshots/`.
+
+---
+
+## 🎨 Novedades de la v2.0.1: Personalización Completa de la Interfaz
 
 * **Pestaña de Personalización en Ajustes**:
   * Pestañas fluidas en el diálogo de ajustes para separar la configuración general/audio del diseño visual.
